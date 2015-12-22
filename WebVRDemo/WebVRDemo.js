@@ -15,7 +15,7 @@ require({
        ], function(
     Cartesian3,
     CesiumTerrainProvider,
-    Matrix4
+    Matrix4,
     FullscreenButton,
     Viewer) {
     "use strict";

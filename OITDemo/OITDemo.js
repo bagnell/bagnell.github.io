@@ -360,4 +360,6 @@ require({
         instructions.appendChild(document.createElement('br'));
         instructions.appendChild(document.createTextNode('Zoom - right mouse drag'));
     })(scene);
+
+    loadingIndicator.style.display = 'none';
 });

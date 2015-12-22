@@ -106,5 +106,9 @@ require({
     }
     */
 
+    window.addEventListener('deviceorientation', function(e) {
+        console.log('alpha: ' + e.alpha + ', beta: ' + e.beta + ', gamma: ' + e.gamma);
+    }, false);
+
     loadingIndicator.style.display = 'none';
 });

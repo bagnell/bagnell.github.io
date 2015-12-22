@@ -33,6 +33,7 @@ require({
             Matrix4,
             Transforms,
             PerInstanceColorAppearance,
+            Primitive,
             CesiumWidget
 ) {
     var widget = new CesiumWidget('cesiumContainer');
@@ -220,11 +221,25 @@ require({
         }
     }
 
-    (function(scene) {
-        function selectMenuOption(menu, options) {
-            options[menu.selectedIndex].onselect();
-        }
+    function selectMenuOption(menu, options) {
+        options[menu.selectedIndex].onselect();
+    }
 
+    function addToolbarMenu(options, onchange) {
+        var menu = document.createElement('select');
+        menu.className = 'cesium-button';
+        menu.onchange = onchange;
+        document.getElementById('toolbar').appendChild(menu);
+
+        for (var i = 0, len = options.length; i < len; ++i) {
+            var option = document.createElement('option');
+            option.textContent = options[i].text;
+            option.value = options[i].value;
+            menu.appendChild(option);
+        }
+    }
+
+    (function(scene) {
         var toggleOITMethod = [];
 
         // render one frame to check for MRT support
@@ -269,11 +284,9 @@ require({
         // reset to best method
         toggleOITMethod[0].onselect();
 
-        /*
-        Sandcastle.addToolbarMenu(toggleOITMethod, function() {
+        addToolbarMenu(toggleOITMethod, function() {
             selectMenuOption(this, toggleOITMethod);
         });
-        */
 
         var toggleFXAAOptions = [{
             text : 'FXAA Enabled',
@@ -287,11 +300,9 @@ require({
             }
         }];
 
-        /*
-        Sandcastle.addToolbarMenu(toggleFXAAOptions, function() {
+        addToolbarMenu(toggleFXAAOptions, function() {
             selectMenuOption(this, toggleFXAAOptions);
         });
-        */
 
         var batched = document.createElement('input');
         batched.type = 'checkbox';
@@ -339,7 +350,7 @@ require({
         });
 
         var instructions = document.createElement('div');
-        instructions.style.cssText = 'width: 95%;';
+        instructions.style.cssText = 'width: 95%; color: #ffffff';
         document.getElementById('toolbar').appendChild(instructions);
 
         instructions.appendChild(document.createElement('br'));

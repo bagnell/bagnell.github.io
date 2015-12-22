@@ -17,7 +17,7 @@ require({
             'Cesium/Core/GeometryInstance',
             'Cesium/Core/Matrix4',
             'Cesium/Core/Transforms',
-            'Cesium/Scene/PerInstanceColorApearance',
+            'Cesium/Scene/PerInstanceColorAppearance',
             'Cesium/Scene/Primitive',
             'Cesium/Widgets/CesiumWidget/CesiumWidget'
         ], function(

@@ -14,6 +14,15 @@ body {
     background: #000;
 }
 
+option {
+    background-color: #fff;
+    color: #000;
+}
+
+option:disabled {
+    color: #ccc;
+}
+
 .fullWindow {
     position: absolute;
     top: 0;
@@ -44,6 +53,7 @@ body {
     margin: 5px;
     padding: 2px 5px;
     position: absolute;
+    color: white;
 }
 
 .cesium-button {
@@ -65,6 +75,8 @@ body {
     margin:3px;
     text-decoration:none;
     text-shadow:0px 1px 0px #ffffff;
+
+    color: black;
 }
 
 .cesium-button:hover {
@@ -74,6 +86,7 @@ body {
     background:-o-linear-gradient(top, #dedede 5%, #f9f9f9 100%);
     background:-ms-linear-gradient(top, #dedede 5%, #f9f9f9 100%);
     background:linear-gradient(to bottom, #dedede 5%, #f9f9f9 100%);
+    color: black;
 }
 
 .cesium-button:active {
@@ -82,4 +95,9 @@ body {
     -ms-transform: translateY(1px);
     -o-transform: translateY(1px);
     transform: translateY(1px);
+    color: black;
+}
+
+.cesium-button:focus {
+    color: black;
 }

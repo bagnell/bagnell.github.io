@@ -18,7 +18,8 @@ require({
     var viewer = new Viewer('cesiumContainer', {
         animation : false,
         baseLayerPicker : false,
-        fullscreenButton : false,
+        //fullscreenButton : false,
+        fullscreenButton : true,
         geocoder : false,
         homeButton : false,
         infoBox : false,
@@ -30,6 +31,7 @@ require({
         scene3DOnly : true
     });
 
+    /*
     var vrHMD;
     var vrSensor;
 
@@ -38,7 +40,6 @@ require({
             if (devices[i] instanceof HMDVRDevice) {
                 vrHMD = devices[i];
 
-                /*
                 if ('getEyeParameters' in vrHMD) {
                     var leftEye = vrHMD.getEyeParameters("left");
                     var rightEye = vrHMD.getEyeParameters("right");
@@ -59,7 +60,6 @@ require({
                     vrFovLeft = vrHMD.getRecommendedEyeFieldOfView("left");
                     vrFovRight = vrHMD.getRecommendedEyeFieldOfView("right");
                 }
-                */
 
                 break;
             }
@@ -86,6 +86,7 @@ require({
     } else if (navigator.mozGetVRDevices) {
         navigator.mozGetVRDevices(EnumerateVRDevice);
     }
+    */
 
     loadingIndicator.style.display = 'none';
 });

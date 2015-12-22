@@ -6,7 +6,7 @@ require({
                 Cesium : 'Cesium/Source'
             }
         }, [
-           'Cesium/Widgets/FullscreenButton/FullScreenButton',
+           'Cesium/Widgets/FullscreenButton/FullscreenButton',
            'Cesium/Widgets/Viewer/Viewer',
            'domReady!'
        ], function(

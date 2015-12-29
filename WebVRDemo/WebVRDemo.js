@@ -127,12 +127,14 @@ require({
         var bMat = Matrix3.fromRotationY(beta);
         var gMat = Matrix3.fromRotationZ(-gamma);
 
-        var rotation = Matrix3.multiply(aMat, gMat, new Matrix3());
+        var rotation = new Matrix3();
+        Matrix3.multiply(aMat, gMat, rotation);
         Matrix3.multiply(bMat, rotation, rotation);
 
         var transform = Transforms.eastNorthUpToFixedFrame(camera.position);
         camera.lookAtTransform(transform);
 
+        Matrix3.transpose(rotation, rotation);
         Matrix3.getColumn(rotation, 0, camera.right);
         Matrix3.getColumn(rotation, 1, camera.up);
         Matrix3.getColumn(rotation, 2, camera.direction);

@@ -8,14 +8,20 @@ require({
         }, [
            'Cesium/Core/Cartesian3',
            'Cesium/Core/CesiumTerrainProvider',
+           'Cesium/Core/Math',
+           'Cesium/Core/Matrix3',
            'Cesium/Core/Matrix4',
+           'Cesium/Core/Transforms',
            'Cesium/Widgets/FullscreenButton/FullscreenButton',
            'Cesium/Widgets/Viewer/Viewer',
            'domReady!'
        ], function(
     Cartesian3,
     CesiumTerrainProvider,
+    CesiumMath,
+    Matrix3,
     Matrix4,
+    Transforms,
     FullscreenButton,
     Viewer) {
     "use strict";
@@ -44,10 +50,12 @@ require({
     });
     viewer.terrainProvider = cesiumTerrainProviderMeshes;
 
+    var camera = viewer.camera;
+
     var target = new Cartesian3(300770.50872389384, 5634912.131394585, 2978152.2865545116);
     var offset = new Cartesian3(6344.974098678562, -793.3419798081741, 2499.9508860763162);
-    viewer.camera.lookAt(target, offset);
-    viewer.camera.lookAtTransform(Matrix4.IDENTITY);
+    camera.lookAt(target, offset);
+    camera.lookAtTransform(Matrix4.IDENTITY);
 
     /*
     var vrHMD;
@@ -107,7 +115,27 @@ require({
     */
 
     window.addEventListener('deviceorientation', function(e) {
-        console.log('alpha: ' + e.alpha + ', beta: ' + e.beta + ', gamma: ' + e.gamma);
+        //console.log('alpha: ' + e.alpha + ', beta: ' + e.beta + ', gamma: ' + e.gamma);
+
+        var alpha = CesiumMath.toRadians(defaultValue(e.alpha, 0.0));
+        var beta = CesiumMath.toRadians(defaultValue(e.beta, 0.0));
+        var gamma = CesiumMath.toRadians(defaultValue(e.gamma, 0.0));
+
+        var aMat = Matrix3.fromRotationX(alpha);
+        var bMat = Matrix3.fromRotationY(beta);
+        var gMat = Matrix3.fromRotationZ(-gamma);
+
+        var rotation = Matrix3.multiply(aMat, gMat, new Matrix3());
+        Matrix3.multiply(bMat, rotation, rotation);
+
+        var transform = Transforms.eastNorthUpToFixedFrame(camera.position);
+        camera.lookAtTransform(transform);
+
+        Matrix3.getColumn(rotation, 0, camera.right);
+        Matrix3.getColumn(rotation, 1, camera.up);
+        Matrix3.getColumn(rotation, 2, camera.direction);
+
+        camera.lookAtTransform(Matrix4.IDENTITY);
     }, false);
 
     loadingIndicator.style.display = 'none';

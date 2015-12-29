@@ -8,6 +8,7 @@ require({
         }, [
            'Cesium/Core/Cartesian3',
            'Cesium/Core/CesiumTerrainProvider',
+           'Cesium/Core/defaultValue',
            'Cesium/Core/Math',
            'Cesium/Core/Matrix3',
            'Cesium/Core/Matrix4',
@@ -18,6 +19,7 @@ require({
        ], function(
     Cartesian3,
     CesiumTerrainProvider,
+    defaultValue,
     CesiumMath,
     Matrix3,
     Matrix4,

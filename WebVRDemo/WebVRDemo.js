@@ -12,6 +12,7 @@ require({
            'Cesium/Core/Math',
            'Cesium/Core/Matrix3',
            'Cesium/Core/Matrix4',
+           'Cesium/Core/Quaternion',
            'Cesium/Core/Transforms',
            'Cesium/Widgets/FullscreenButton/FullscreenButton',
            'Cesium/Widgets/Viewer/Viewer',
@@ -23,6 +24,7 @@ require({
     CesiumMath,
     Matrix3,
     Matrix4,
+    Quaternion,
     Transforms,
     FullscreenButton,
     Viewer) {
@@ -119,27 +121,17 @@ require({
     window.addEventListener('deviceorientation', function(e) {
         //console.log('alpha: ' + e.alpha + ', beta: ' + e.beta + ', gamma: ' + e.gamma);
 
-        var alpha = CesiumMath.toRadians(defaultValue(e.alpha, 0.0));
-        var beta = CesiumMath.toRadians(defaultValue(e.beta, 0.0));
+        //var alpha = CesiumMath.toRadians(defaultValue(e.alpha, 0.0));
+        //var beta = CesiumMath.toRadians(defaultValue(e.beta, 0.0));
         var gamma = CesiumMath.toRadians(defaultValue(e.gamma, 0.0));
 
-        var aMat = Matrix3.fromRotationX(alpha);
-        var bMat = Matrix3.fromRotationY(beta);
-        var gMat = Matrix3.fromRotationZ(-gamma);
+        var gQuat = Quaternion.fromAxisAngle(camera.direction, gamma);
 
-        var rotation = new Matrix3();
-        Matrix3.multiply(aMat, gMat, rotation);
-        Matrix3.multiply(bMat, rotation, rotation);
+        var matrix = Matrix3.fromQuaternion(gQuat);
 
-        var transform = Transforms.eastNorthUpToFixedFrame(camera.position);
-        camera.lookAtTransform(transform);
-
-        Matrix3.transpose(rotation, rotation);
-        Matrix3.getColumn(rotation, 0, camera.right);
-        Matrix3.getColumn(rotation, 1, camera.up);
-        Matrix3.getColumn(rotation, 2, camera.direction);
-
-        camera.lookAtTransform(Matrix4.IDENTITY);
+        Matrix3.getColumn(matrix, 0, camera.right);
+        Matrix3.getColumn(matrix, 1, camera.up);
+        Matrix3.getColumn(matrix, 2, camera.direction);
     }, false);
 
     loadingIndicator.style.display = 'none';

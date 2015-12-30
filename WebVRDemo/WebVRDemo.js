@@ -125,11 +125,11 @@ require({
     var gamma;
 
     window.addEventListener('deviceorientation', function(e) {
-        //console.log('alpha: ' + e.alpha + ', beta: ' + e.beta + ', gamma: ' + e.gamma);
-
         var eAlpha = CesiumMath.toRadians(defaultValue(e.alpha, 0.0));
         var eBeta = CesiumMath.toRadians(defaultValue(e.beta, 0.0));
         var eGamma = CesiumMath.toRadians(defaultValue(e.gamma, 0.0));
+
+        console.log(e.alpha);
 
         if (!defined(alpha)) {
             alpha = eAlpha;
@@ -145,9 +145,9 @@ require({
         beta = eBeta;
         gamma = eGamma;
 
-        var gQuat = Quaternion.fromAxisAngle(camera.right, g);
-
-        var matrix = Matrix3.fromQuaternion(gQuat);
+        var aQuat = Quaternion.fromAxisAngle(camera.up, a);
+        //var gQuat = Quaternion.fromAxisAngle(camera.right, g);
+        var matrix = Matrix3.fromQuaternion(aQuat);
 
         Matrix3.multiplyByVector(matrix, camera.right, camera.right);
         Matrix3.multiplyByVector(matrix, camera.up, camera.up);

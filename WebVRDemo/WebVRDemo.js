@@ -58,10 +58,12 @@ require({
 
     var camera = viewer.camera;
 
+    /*
     var target = new Cartesian3(300770.50872389384, 5634912.131394585, 2978152.2865545116);
     var offset = new Cartesian3(6344.974098678562, -793.3419798081741, 2499.9508860763162);
     camera.lookAt(target, offset);
     camera.lookAtTransform(Matrix4.IDENTITY);
+    */
 
     /*
     var vrHMD;

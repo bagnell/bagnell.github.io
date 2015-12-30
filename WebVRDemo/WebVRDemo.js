@@ -149,9 +149,9 @@ require({
 
         var matrix = Matrix3.fromQuaternion(gQuat);
 
-        Matrix3.getColumn(matrix, 0, camera.right);
-        Matrix3.getColumn(matrix, 1, camera.up);
-        Matrix3.getColumn(matrix, 2, camera.direction);
+        Matrix3.multiplyByVector(matrix, camera.right, camera.right);
+        Matrix3.multiplyByVector(matrix, camera.up, camera.up);
+        Matrix3.multiplyByVector(matrix, camera.direction, camera.direction);
     }, false);
 
     loadingIndicator.style.display = 'none';

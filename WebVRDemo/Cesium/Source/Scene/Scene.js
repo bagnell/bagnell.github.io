@@ -1857,13 +1857,12 @@ define([
             var frustum = camera.frustum;
             var fo = frustum.near * 5.0;
             var eyeSeparation = fo / 30.0;
-            var eyeTranslation = Cartesian3.multiplyByScalar(camera.right, eyeSeparation * 0.5, scratchEyeTranslation);
+            var eyeTranslation = Cartesian3.multiplyByScalar(scene._camera.right, eyeSeparation * 0.5, scratchEyeTranslation);
 
-            var aspectRatio = viewport.width / viewport.height;
-            var fovx = CesiumMath.toRadians(45.0);
-            var widthdiv2 = frustum.near * Math.tan(fovx * 0.5);
+            var aspectRatio = context.drawingBufferWidth / context.drawingBufferHeight;
+            var widthdiv2 = frustum.near * Math.tan(frustum.fov * 0.5);
 
-            var cameraL = Camera.clone(camera, scene._cameraVRL);
+            var cameraL = Camera.clone(scene._camera, scene._cameraVRL);
             Cartesian3.add(cameraL.position, eyeTranslation, cameraL.position);
 
             var frustumL = cameraL.frustum;
@@ -1871,7 +1870,7 @@ define([
             frustumL.far = frustum.far;
             frustumL.top = widthdiv2;
             frustumL.bottom = -frustumL.top;
-            frustumL.right = aspectRatio * widthdiv2 - 0.5 * eyeSeparation * frustum.near / fo;
+            frustumL.right = aspectRatio * widthdiv2 + 0.5 * eyeSeparation * frustum.near / fo;
             frustumL.left = -frustumL.right;
 
             frameState.camera = cameraL;
@@ -1881,7 +1880,7 @@ define([
 
             viewport.x = passState.viewport.width;
 
-            var cameraR = Camera.clone(camera, scene._cameraVRR);
+            var cameraR = Camera.clone(scene._camera, scene._cameraVRR);
             Cartesian3.subtract(cameraR.position, eyeTranslation, cameraR.position);
 
             var frustumR = cameraR.frustum;
@@ -1889,7 +1888,7 @@ define([
             frustumR.far = frustum.far;
             frustumR.top = widthdiv2;
             frustumR.bottom = -frustum.top;
-            frustumR.right = aspectRatio * widthdiv2 + 0.5 * eyeSeparation * frustum.near / fo;
+            frustumR.right = aspectRatio * widthdiv2 - 0.5 * eyeSeparation * frustum.near / fo;
             frustumR.left = -frustumR.right;
 
             frameState.camera = cameraR;
@@ -1901,6 +1900,8 @@ define([
         resolveFramebuffers(scene, passState);
         executeOverlayCommands(scene, passState);
 
+        // TODO: Add credits to both viewports
+        frameState.creditDisplay.beginFrame();
         frameState.creditDisplay.endFrame();
 
         if (scene.debugShowFramesPerSecond) {

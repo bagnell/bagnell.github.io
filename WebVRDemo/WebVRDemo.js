@@ -145,17 +145,13 @@ require({
         beta = eBeta;
         gamma = eGamma;
 
-        console.log('alpha: ' + a + ', beta: ' + b + ', gamma: ' + g);
-
-        /*
-        var gQuat = Quaternion.fromAxisAngle(right, gamma);
+        var gQuat = Quaternion.fromAxisAngle(right, g);
 
         var matrix = Matrix3.fromQuaternion(gQuat);
 
         Matrix3.getColumn(matrix, 0, camera.right);
         Matrix3.getColumn(matrix, 1, camera.up);
         Matrix3.getColumn(matrix, 2, camera.direction);
-        */
     }, false);
 
     loadingIndicator.style.display = 'none';

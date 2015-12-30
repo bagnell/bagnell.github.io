@@ -137,11 +137,15 @@ require({
             gamma = eGamma;
         }
 
-        alpha -= eAlpha;
-        beta -= eBeta;
-        gamma -= eGamma;
+        var a = alpha - eAlpha;
+        var b = beta - eBeta;
+        var g = gamma - eGamma;
 
-        console.log('alpha: ' + alpha + ', beta: ' + beta + ', gamma: ' + gamma);
+        alpha = eAlpha;
+        beta = eBeta;
+        gamma = eGamma;
+
+        console.log('alpha: ' + a + ', beta: ' + b + ', gamma: ' + g);
 
         /*
         var gQuat = Quaternion.fromAxisAngle(right, gamma);

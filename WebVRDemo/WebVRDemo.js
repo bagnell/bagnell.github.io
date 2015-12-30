@@ -118,20 +118,38 @@ require({
     }
     */
 
+    var alpha;
+    var beta;
+    var gamma;
+
     window.addEventListener('deviceorientation', function(e) {
         //console.log('alpha: ' + e.alpha + ', beta: ' + e.beta + ', gamma: ' + e.gamma);
 
-        //var alpha = CesiumMath.toRadians(defaultValue(e.alpha, 0.0));
-        //var beta = CesiumMath.toRadians(defaultValue(e.beta, 0.0));
-        var gamma = CesiumMath.toRadians(defaultValue(e.gamma, 0.0));
+        var eAlpha = CesiumMath.toRadians(defaultValue(e.alpha, 0.0));
+        var eBeta = CesiumMath.toRadians(defaultValue(e.beta, 0.0));
+        var eGamma = CesiumMath.toRadians(defaultValue(e.gamma, 0.0));
 
-        var gQuat = Quaternion.fromAxisAngle(camera.direction, gamma);
+        if (!defined(alpha)) {
+            alpha = eAlpha;
+            beta = eBeta;
+            gamma = eGamma;
+        }
+
+        alpha -= eAlpha;
+        beta -= eBeta;
+        gamma -= eGamma;
+
+        console.log('alpha: ' + alpha + ', beta: ' + beta + ', gamma: ' + gamma);
+
+        /*
+        var gQuat = Quaternion.fromAxisAngle(right, gamma);
 
         var matrix = Matrix3.fromQuaternion(gQuat);
 
         Matrix3.getColumn(matrix, 0, camera.right);
         Matrix3.getColumn(matrix, 1, camera.up);
         Matrix3.getColumn(matrix, 2, camera.direction);
+        */
     }, false);
 
     loadingIndicator.style.display = 'none';

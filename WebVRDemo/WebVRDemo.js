@@ -129,8 +129,6 @@ require({
         var eBeta = CesiumMath.toRadians(defaultValue(e.beta, 0.0));
         var eGamma = CesiumMath.toRadians(defaultValue(e.gamma, 0.0));
 
-        console.log(e.alpha);
-
         if (!defined(alpha)) {
             alpha = eAlpha;
             beta = eBeta;
@@ -141,18 +139,22 @@ require({
         var b = beta - eBeta;
         var g = gamma - eGamma;
 
-        alpha = eAlpha;
-        beta = eBeta;
-        gamma = eGamma;
-
         var aQuat = Quaternion.fromAxisAngle(camera.up, -a);
         var bQuat = Quaternion.fromAxisAngle(camera.direction, b);
         var gQuat = Quaternion.fromAxisAngle(camera.right, g);
-        var matrix = Matrix3.fromQuaternion(bQuat);
+
+        var rotQuat = new Quaternion();
+        Quaternion.multiply(gQuat, bQuat, rotQuat);
+        Quaternion.multiply(aQuat, rotQuat, rotQuat);
+        var matrix = Matrix3.fromQuaternion(rotQuat);
 
         Matrix3.multiplyByVector(matrix, camera.right, camera.right);
         Matrix3.multiplyByVector(matrix, camera.up, camera.up);
         Matrix3.multiplyByVector(matrix, camera.direction, camera.direction);
+
+        alpha = eAlpha;
+        beta = eBeta;
+        gamma = eGamma;
     }, false);
 
     loadingIndicator.style.display = 'none';

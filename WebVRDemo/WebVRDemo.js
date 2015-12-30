@@ -56,6 +56,8 @@ require({
     });
     viewer.terrainProvider = cesiumTerrainProviderMeshes;
 
+    viewer.scene.screenSpaceCameraController.enableInputs = false;
+
     var camera = viewer.camera;
 
     /*

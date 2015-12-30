@@ -145,9 +145,10 @@ require({
         beta = eBeta;
         gamma = eGamma;
 
-        var aQuat = Quaternion.fromAxisAngle(camera.up, a);
-        //var gQuat = Quaternion.fromAxisAngle(camera.right, g);
-        var matrix = Matrix3.fromQuaternion(aQuat);
+        var aQuat = Quaternion.fromAxisAngle(camera.up, -a);
+        var bQuat = Quaternion.fromAxisAngle(camera.direction, b);
+        var gQuat = Quaternion.fromAxisAngle(camera.right, g);
+        var matrix = Matrix3.fromQuaternion(bQuat);
 
         Matrix3.multiplyByVector(matrix, camera.right, camera.right);
         Matrix3.multiplyByVector(matrix, camera.up, camera.up);

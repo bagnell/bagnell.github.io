@@ -10,11 +10,11 @@ require({
            'Cesium/Core/CesiumTerrainProvider',
            'Cesium/Core/defaultValue',
            'Cesium/Core/defined',
+           'Cesium/Core/DeviceOrientationCameraController',
            'Cesium/Core/Math',
            'Cesium/Core/Matrix3',
            'Cesium/Core/Matrix4',
            'Cesium/Core/Quaternion',
-           'Cesium/Core/Transforms',
            'Cesium/Widgets/FullscreenButton/FullscreenButton',
            'Cesium/Widgets/Viewer/Viewer',
            'domReady!'
@@ -23,11 +23,11 @@ require({
     CesiumTerrainProvider,
     defaultValue,
     defined,
+    DeviceOrientationCameraController,
     CesiumMath,
     Matrix3,
     Matrix4,
     Quaternion,
-    Transforms,
     FullscreenButton,
     Viewer) {
     "use strict";
@@ -58,7 +58,9 @@ require({
 
     viewer.scene.screenSpaceCameraController.enableInputs = false;
 
-    var camera = viewer.camera;
+    var docc = new DeviceOrientationCameraController(viewer.scene);
+
+    //var camera = viewer.camera;
 
     /*
     var target = new Cartesian3(300770.50872389384, 5634912.131394585, 2978152.2865545116);
@@ -67,6 +69,7 @@ require({
     camera.lookAtTransform(Matrix4.IDENTITY);
     */
 
+    /*
     var alpha;
     var beta;
     var gamma;
@@ -103,6 +106,7 @@ require({
         beta = eBeta;
         gamma = eGamma;
     }, false);
+    */
 
     loadingIndicator.style.display = 'none';
 });

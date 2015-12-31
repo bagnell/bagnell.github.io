@@ -10,11 +10,11 @@ require({
            'Cesium/Core/CesiumTerrainProvider',
            'Cesium/Core/defaultValue',
            'Cesium/Core/defined',
-           'Cesium/Core/DeviceOrientationCameraController',
            'Cesium/Core/Math',
            'Cesium/Core/Matrix3',
            'Cesium/Core/Matrix4',
            'Cesium/Core/Quaternion',
+           'Cesium/Scene/DeviceOrientationCameraController',
            'Cesium/Widgets/FullscreenButton/FullscreenButton',
            'Cesium/Widgets/Viewer/Viewer',
            'domReady!'
@@ -23,11 +23,11 @@ require({
     CesiumTerrainProvider,
     defaultValue,
     defined,
-    DeviceOrientationCameraController,
     CesiumMath,
     Matrix3,
     Matrix4,
     Quaternion,
+    DeviceOrientationCameraController,
     FullscreenButton,
     Viewer) {
     "use strict";
@@ -49,12 +49,14 @@ require({
         scene3DOnly : true
     });
 
+    /*
     var cesiumTerrainProviderMeshes = new CesiumTerrainProvider({
         url : '//assets.agi.com/stk-terrain/world',
         requestWaterMask : true,
         requestVertexNormals : true
     });
     viewer.terrainProvider = cesiumTerrainProviderMeshes;
+    */
 
     viewer.scene.screenSpaceCameraController.enableInputs = false;
 

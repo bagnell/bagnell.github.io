@@ -1864,48 +1864,35 @@ define([
             viewport.width = context.drawingBufferWidth * 0.5;
             viewport.height = context.drawingBufferHeight;
 
+            var scratchCamera = new Camera(scene);
+            var savedCamera = Camera.clone(camera, scratchCamera);
+            var savedFrustum = camera.frustum;
+
             // TODO
-            var frustum = camera.frustum;
-            var fo = frustum.near * 5.0;
+            var fo = savedFrustum.near * 5.0;
             var eyeSeparation = fo / 30.0;
-            var eyeTranslation = Cartesian3.multiplyByScalar(scene._camera.right, eyeSeparation * 0.5, scratchEyeTranslation);
+            var eyeTranslation = Cartesian3.multiplyByScalar(savedCamera.right, eyeSeparation * 0.5, scratchEyeTranslation);
 
-            var aspectRatio = context.drawingBufferWidth / context.drawingBufferHeight;
-            var widthdiv2 = frustum.near * Math.tan(frustum.fov * 0.5);
+            camera.frustum.aspectRatio = viewport.width / viewport.height;
 
-            var cameraL = Camera.clone(scene._camera, scene._cameraVRL);
-            Cartesian3.add(cameraL.position, eyeTranslation, cameraL.position);
+            var offset = 0.5 * eyeSeparation * savedFrustum.near / fo;
 
-            var frustumL = cameraL.frustum;
-            frustumL.near = frustum.near;
-            frustumL.far = frustum.far;
-            frustumL.top = widthdiv2;
-            frustumL.bottom = -frustumL.top;
-            frustumL.right = aspectRatio * widthdiv2 + 0.5 * eyeSeparation * frustum.near / fo;
-            frustumL.left = -frustumL.right;
+            Cartesian3.add(savedCamera.position, eyeTranslation, camera.position);
+            camera.frustum.xOffset = offset;
 
-            frameState.camera = cameraL;
             us.update(frameState);
-
             executeCommands(scene, passState);
 
             viewport.x = passState.viewport.width;
 
-            var cameraR = Camera.clone(scene._camera, scene._cameraVRR);
-            Cartesian3.subtract(cameraR.position, eyeTranslation, cameraR.position);
+            Cartesian3.subtract(savedCamera.position, eyeTranslation, camera.position);
+            camera.frustum.xOffset = -offset;
 
-            var frustumR = cameraR.frustum;
-            frustumR.near = frustum.near;
-            frustumR.far = frustum.far;
-            frustumR.top = widthdiv2;
-            frustumR.bottom = -frustum.top;
-            frustumR.right = aspectRatio * widthdiv2 - 0.5 * eyeSeparation * frustum.near / fo;
-            frustumR.left = -frustumR.right;
-
-            frameState.camera = cameraR;
             us.update(frameState);
-
             executeCommands(scene, passState);
+
+            Camera.clone(scratchCamera, camera);
+            camera.frustum = savedFrustum;
         }
 
         resolveFramebuffers(scene, passState);

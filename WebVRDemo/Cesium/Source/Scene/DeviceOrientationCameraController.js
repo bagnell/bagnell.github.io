@@ -94,6 +94,10 @@ define([
     }
 
     DeviceOrientationCameraController.prototype.update = function() {
+        if (!defined(this._alpha)) {
+            return;
+        }
+
         if (!defined(this._lastAlpha)) {
             this._lastAlpha = this._alpha;
             this._lastBeta = this._beta;

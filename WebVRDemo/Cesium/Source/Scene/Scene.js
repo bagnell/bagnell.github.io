@@ -525,9 +525,6 @@ define([
          */
         this.fog = new Fog();
 
-        // TODO: default to false
-        this._useWebVR = defaultValue(options.useWebVR, true);
-
         this._terrainExaggeration = defaultValue(options.terrainExaggeration, 1.0);
 
         this._performanceDisplay = undefined;
@@ -562,21 +559,9 @@ define([
             useFXAA : false
         };
 
-        var cameraL;
-        var cameraR;
-
-        if (this._useWebVR) {
-            cameraL = new Camera(this);
-            cameraL.frustum = new PerspectiveOffCenterFrustum();
-
-            cameraR = new Camera(this);
-            cameraR.frustum = new PerspectiveOffCenterFrustum();
-
-            this._deviceOrientationCameraController = new DeviceOrientationCameraController(this);
-        }
-
-        this._cameraVRL = cameraL;
-        this._cameraVRR = cameraR;
+        this._useWebVR = false;
+        this._cameraVRL = undefined;
+        this._cameraVRR = undefined;
 
         // initial guess at frustums.
         var near = camera.frustum.near;
@@ -996,6 +981,23 @@ define([
         useWebVR : {
             get : function() {
                 return this._useWebVR;
+            },
+            set : function(value) {
+                this._useWebVR = value;
+
+                if (this._useWebVR) {
+                    this._cameraVRL = new Camera(this);
+                    this._cameraVRL.frustum = new PerspectiveOffCenterFrustum();
+
+                    this._cameraVRR = new Camera(this);
+                    this._cameraVRR.frustum = new PerspectiveOffCenterFrustum();
+
+                    this._deviceOrientationCameraController = new DeviceOrientationCameraController(this);
+                } else {
+                    this._cameraVRL = this._cameraVRL && !this._cameraVRL.isDestroyed() && this._cameraVRL.destroy();
+                    this._cameraVRR = this._cameraVRR && !this._cameraVRR.isDestroyed() && this._cameraVRR.destroy();
+                    this._deviceOrientationCameraController = this._deviceOrientationCameraController && !this._deviceOrientationCameraController.isDestroyed() && this._deviceOrientationCameraController.destroy();
+                }
             }
         }
     });
@@ -1782,8 +1784,12 @@ define([
 
         this._tweens.update();
         this._camera.update(this._mode);
-        this._screenSpaceCameraController.update();
-        this._deviceOrientationCameraController.update();
+
+        if (!this._useWebVR) {
+            this._screenSpaceCameraController.update();
+        } else {
+            this._deviceOrientationCameraController.update();
+        }
     };
 
     var scratchEyeTranslation = new Cartesian3();
@@ -2325,10 +2331,11 @@ define([
      *
      * @exception {DeveloperError} This object was destroyed, i.e., destroy() was called.
      *
-     * @see Scene#isDestroyed
      *
      * @example
      * scene = scene && scene.destroy();
+     * 
+     * @see Scene#isDestroyed
      */
     Scene.prototype.destroy = function() {
         this._tweens.removeAll();

@@ -20,7 +20,6 @@ require({
     var viewer = new Viewer('cesiumContainer', {
         animation : false,
         baseLayerPicker : false,
-        //fullscreenButton : false,
         fullscreenButton : true,
         geocoder : false,
         homeButton : false,
@@ -33,6 +32,8 @@ require({
         scene3DOnly : true
     });
 
+    viewer.scene.useWebVR = true;
+
     /*
     var cesiumTerrainProviderMeshes = new CesiumTerrainProvider({
         url : '//assets.agi.com/stk-terrain/world',
@@ -41,8 +42,6 @@ require({
     });
     viewer.terrainProvider = cesiumTerrainProviderMeshes;
     */
-
-    viewer.scene.screenSpaceCameraController.enableInputs = false;
 
     /*
     var camera = viewer.camera;

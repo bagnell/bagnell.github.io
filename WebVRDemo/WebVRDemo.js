@@ -61,6 +61,9 @@ require({
     viewer.scene.screenSpaceCameraController.enableInputs = false;
 
     var docc = new DeviceOrientationCameraController(viewer.scene);
+    scene.postRender.addEventListener(function() {
+        docc.update(scene.frameState);
+    });
 
     //var camera = viewer.camera;
 

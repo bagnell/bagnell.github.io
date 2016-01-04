@@ -572,7 +572,7 @@ define([
             cameraR = new Camera(this);
             cameraR.frustum = new PerspectiveOffCenterFrustum();
 
-            this._deviceOrientationCameraController = new DeviceOrientationCameraController();
+            this._deviceOrientationCameraController = new DeviceOrientationCameraController(this);
         }
 
         this._cameraVRL = cameraL;

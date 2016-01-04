@@ -24,6 +24,8 @@ define([
         }
         //>>includeEnd('debug');
 
+        this._scene = scene;
+
         this._lastAlpha = undefined;
         this._lastBeta = undefined;
         this._lastGamma = undefined;
@@ -91,7 +93,7 @@ define([
         Matrix3.multiplyByVector(matrix, direction, direction);
     }
 
-    DeviceOrientationCameraController.prototype.update = function(frameState) {
+    DeviceOrientationCameraController.prototype.update = function() {
         if (!defined(this._lastAlpha)) {
             this._lastAlpha = this._alpha;
             this._lastBeta = this._beta;
@@ -102,7 +104,7 @@ define([
         var b = this._beta - this._lastBeta;
         var g = this._gamma - this._lastGamma;
 
-        rotate(frameState.camera, -a, b, g);
+        rotate(this._scene.camera, -a, b, g);
 
         this._lastAlpha = this._alpha;
         this._lastBeta = this._beta;

@@ -994,8 +994,8 @@ define([
 
                     this._deviceOrientationCameraController = new DeviceOrientationCameraController(this);
                 } else {
-                    this._cameraVRL = this._cameraVRL && !this._cameraVRL.isDestroyed() && this._cameraVRL.destroy();
-                    this._cameraVRR = this._cameraVRR && !this._cameraVRR.isDestroyed() && this._cameraVRR.destroy();
+                    this._cameraVRL = undefined;
+                    this._cameraVRR = undefined;
                     this._deviceOrientationCameraController = this._deviceOrientationCameraController && !this._deviceOrientationCameraController.isDestroyed() && this._deviceOrientationCameraController.destroy();
                 }
             }

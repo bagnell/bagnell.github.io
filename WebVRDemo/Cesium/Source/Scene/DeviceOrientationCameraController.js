@@ -36,28 +36,6 @@ define([
 
         var that = this;
         function callback(e) {
-            /*
-            var eAlpha = CesiumMath.toRadians(defaultValue(e.alpha, 0.0));
-            var eBeta = CesiumMath.toRadians(defaultValue(e.beta, 0.0));
-            var eGamma = CesiumMath.toRadians(defaultValue(e.gamma, 0.0));
-
-            if (!defined(that._alpha)) {
-                that._alpha = eAlpha;
-                that._beta = eBeta;
-                that._gamma = eGamma;
-            }
-
-            var a = that._alpha - eAlpha;
-            var b = that._beta - eBeta;
-            var g = that._gamma - eGamma;
-
-            rotate(scene.camera, -a, b, g);
-
-            that._alpha = eAlpha;
-            that._beta = eBeta;
-            that._gamma = eGamma;
-            */
-
             that._alpha = CesiumMath.toRadians(defaultValue(e.alpha, 0.0));
             that._beta = CesiumMath.toRadians(defaultValue(e.beta, 0.0));
             that._gamma = CesiumMath.toRadians(defaultValue(e.gamma, 0.0));
@@ -104,9 +82,9 @@ define([
             this._lastGamma = this._gamma;
         }
 
-        var a = this._alpha - this._lastAlpha;
-        var b = this._beta - this._lastBeta;
-        var g = this._gamma - this._lastGamma;
+        var a = this._lastAlpha - this._alpha;
+        var b = this._lastBeta - this._beta;
+        var g = this._lastGamma - this._gamma;
 
         rotate(this._scene.camera, -a, b, g);
 

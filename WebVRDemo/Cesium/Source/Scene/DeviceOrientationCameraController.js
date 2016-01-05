@@ -57,6 +57,9 @@ define([
         var right = camera.right;
         var up = camera.up;
 
+        // TODO
+        beta = 0.0;
+
         var bQuat = Quaternion.fromAxisAngle(direction, beta, scratchQuaternion2);
         var gQuat = Quaternion.fromAxisAngle(right, gamma, scratchQuaternion1);
 

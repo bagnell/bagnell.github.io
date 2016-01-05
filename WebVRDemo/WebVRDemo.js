@@ -71,11 +71,11 @@ require({
     viewer.scene.globe.depthTestAgainstTerrain = true;
 
     //Set the random number seed for consistent results.
-    Cesium.Math.setRandomNumberSeed(3);
+    CesiumMath.setRandomNumberSeed(3);
 
     //Set bounds of our simulation time
     var start = JulianDate.fromDate(new Date(2015, 2, 25, 16));
-    var stop = JulianDate.addSeconds(start, 360, new Cesium.JulianDate());
+    var stop = JulianDate.addSeconds(start, 360, new JulianDate());
 
     //Make sure viewer is at the desired time.
     viewer.clock.startTime = start.clone();

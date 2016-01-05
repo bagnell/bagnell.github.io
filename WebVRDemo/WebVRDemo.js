@@ -84,9 +84,6 @@ require({
     viewer.clock.clockRange = ClockRange.LOOP_STOP; //Loop at the end
     viewer.clock.multiplier = 10;
 
-    //Set timeline to simulation bounds
-    viewer.timeline.zoomTo(start, stop);
-
     //Generate a random circular pattern with varying heights.
     function computeCirclularFlight(lon, lat, radius) {
         var property = new SampledPositionProperty();

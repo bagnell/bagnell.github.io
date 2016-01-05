@@ -10,9 +10,11 @@ require({
            'Cesium/Core/CesiumTerrainProvider',
            'Cesium/Core/ClockRange',
            'Cesium/Core/Color',
+           'Cesium/Core/Ellipsoid',
            'Cesium/Core/HermitePolynomialApproximation',
            'Cesium/Core/JulianDate',
            'Cesium/Core/Math',
+           'Cesium/Core/Matrix3',
            'Cesium/Core/Matrix4',
            'Cesium/Core/TimeInterval',
            'Cesium/Core/TimeIntervalCollection',
@@ -26,9 +28,11 @@ require({
     CesiumTerrainProvider,
     ClockRange,
     Color,
+    Ellipsoid,
     HermitePolynomialApproximation,
     JulianDate,
     CesiumMath,
+    Matrix3,
     Matrix4,
     TimeInterval,
     TimeIntervalCollection,
@@ -137,15 +141,63 @@ require({
         }
     });
 
-    viewer.trackedEntity = entity;
-
     entity.position.setInterpolationOptions({
         interpolationDegree : 2,
         interpolationAlgorithm : HermitePolynomialApproximation
     });
 
+    var camera = viewer.camera;
+
+    function setCameraPosition(time) {
+        var deltaTime = JulianDate.addSeconds(time, 0.001, new JulianDate());
+
+        var startPosition = position.getValue(time);
+        var endPosition = position.getValue(deltaTime);
+
+        var xAxis = Cartesian3.subtract(endPosition, startPosition, new Cartesian3());
+        Cartesian3.normalize(xAxis, xAxis);
+        var zAxis = Ellipsoid.WGS84.geodeticSurfaceNormal(startPosition);
+        var yAxis = Cartesian3.cross(zAxis, xAxis, new Cartesian3());
+        Cartesian3.normalize(yAxis, yAxis);
+        Cartesian3.cross(xAxis, yAxis, zAxis);
+        Cartesian3.normalize(zAxis, zAxis);
+
+        var basis = new Matrix3();
+        Matrix3.setColumn(basis, 0, xAxis, basis);
+        Matrix3.setColumn(basis, 1, yAxis, basis);
+        Matrix3.setColumn(basis, 2, zAxis, basis);
+
+        var transform = Matrix4.fromRotationTranslation(basis, startPosition);
+
+        var offset = Cartesian3.clone(camera.position);
+        var direction = Cartesian3.clone(camera.direction);
+        var up = Cartesian3.clone(camera.up);
+
+        camera.lookAtTransform(transform);
+
+        Cartesian3.clone(offset, camera.position);
+        Cartesian3.clone(direction, camera.direction);
+        Cartesian3.clone(up, camera.up);
+        Cartesian3.cross(direction, up, camera.right);
+    }
+
+    var cameraPosition = new Cartesian3(-1.0, 0.0, 1.0);
+    Cartesian3.normalize(cameraPosition, cameraPosition);
+    Cartesian3.multiplyByScalar(cameraPosition, 40.0, cameraPosition);
+    Cartesian3.clone(cameraPosition, camera.position);
+
+    Cartesian3.clone(camera.position, camera.direction);
+    Cartesian3.negate(camera.direction, camera.direction);
+    Cartesian3.normalize(camera.direction, camera.direction);
+    Cartesian3.cross(camera.direction, Cartesian3.UNIT_Z, camera.right);
+    Cartesian3.cross(camera.right, camera.direction, camera.up);
+    Cartesian3.cross(camera.direction, camera.up, camera.right);
+
+    viewer.scene.preRender.addEventListener(function(scene, time) {
+        setCameraPosition(time);
+    });
+
     /*
-     var camera = viewer.camera;
      var target = new Cartesian3(300770.50872389384, 5634912.131394585, 2978152.2865545116);
      var offset = new Cartesian3(6344.974098678562, -793.3419798081741, 2499.9508860763162);
      camera.lookAt(target, offset);

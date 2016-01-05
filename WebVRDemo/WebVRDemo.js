@@ -8,11 +8,13 @@ require({
         }, [
            'Cesium/Core/Cartesian3',
            'Cesium/Core/CesiumTerrainProvider',
+           'Cesium/Core/Matrix4',
            'Cesium/Widgets/Viewer/Viewer',
            'domReady!'
        ], function(
     Cartesian3,
     CesiumTerrainProvider,
+    Matrix4,
     Viewer) {
     "use strict";
 

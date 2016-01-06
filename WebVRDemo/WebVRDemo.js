@@ -55,8 +55,8 @@ require({
         selectionIndicator : false,
         timeline : false,
         navigationHelpButton : false,
-        navigationInstructionsInitiallyVisible : false,
-        scene3DOnly : true
+        navigationInstructionsInitiallyVisible : false//,
+        //scene3DOnly : true
     });
 
     viewer.scene.useWebVR = true;

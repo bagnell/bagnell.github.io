@@ -132,6 +132,10 @@ require({
     var camera = viewer.camera;
 
     function setCameraPosition(time) {
+        if (viewer.scene.mode === SceneMode.MORPHING) {
+            return;
+        }
+
         // set the camera to be in VVLY of the plane, and use the original camera
         // position and orientation. the position is a constant offset from the origin.
         // the orientation will be set from the device orientation event.

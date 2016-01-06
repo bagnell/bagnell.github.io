@@ -51,7 +51,7 @@ require({
         geocoder : false,
         homeButton : false,
         infoBox : false,
-        sceneModePicker : false,
+        //sceneModePicker : false,
         selectionIndicator : false,
         timeline : false,
         navigationHelpButton : false,

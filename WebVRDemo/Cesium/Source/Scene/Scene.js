@@ -60,7 +60,8 @@ define([
         './SceneTransitioner',
         './ScreenSpaceCameraController',
         './SunPostProcess',
-        './TweenCollection'
+        './TweenCollection',
+        '../ThirdParty/NoSleep'
     ], function(
         BoundingRectangle,
         BoundingSphere,
@@ -122,7 +123,8 @@ define([
         SceneTransitioner,
         ScreenSpaceCameraController,
         SunPostProcess,
-        TweenCollection) {
+        TweenCollection,
+        NoSleep) {
     "use strict";
 
     /**
@@ -587,6 +589,7 @@ define([
 
         this._useWebVR = false;
         this._cameraVR = undefined;
+        this._noSleep = undefined;
 
         // initial guess at frustums.
         var near = camera.frustum.near;
@@ -1014,9 +1017,18 @@ define([
                 if (this._useWebVR) {
                     this._cameraVR = new Camera(this);
                     this._deviceOrientationCameraController = new DeviceOrientationCameraController(this);
+
+                    if (!defined(this._noSleep)) {
+                        this._noSleep = new NoSleep();
+                    }
+                    this._noSleep.enable();
                 } else {
                     this._cameraVR = undefined;
                     this._deviceOrientationCameraController = this._deviceOrientationCameraController && !this._deviceOrientationCameraController.isDestroyed() && this._deviceOrientationCameraController.destroy();
+
+                    if (defined(this._noSleep)) {
+                        this._noSleep.disable();
+                    }
                 }
             }
         }

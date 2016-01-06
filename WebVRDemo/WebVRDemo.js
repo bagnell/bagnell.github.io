@@ -20,6 +20,7 @@ require({
            'Cesium/DataSources/PolylineGlowMaterialProperty',
            'Cesium/DataSources/SampledPositionProperty',
            'Cesium/DataSources/VelocityOrientationProperty',
+           'Cesium/Scene/SceneMode',
            'Cesium/Widgets/Viewer/Viewer',
            'domReady!'
        ], function(
@@ -38,6 +39,7 @@ require({
     PolylineGlowMaterialProperty,
     SampledPositionProperty,
     VelocityOrientationProperty,
+    SceneMode,
     Viewer) {
     "use strict";
 

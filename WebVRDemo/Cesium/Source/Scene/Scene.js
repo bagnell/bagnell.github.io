@@ -196,6 +196,8 @@ define([
         var canvas = options.canvas;
         var contextOptions = options.contextOptions;
         var creditContainer = options.creditContainer;
+        var leftCreditContainer = options.leftCreditContainer;
+        var rightCreditContainer = options.rightCreditContainer;
 
         //>>includeStart('debug', pragmas.debug);
         if (!defined(canvas)) {
@@ -215,8 +217,32 @@ define([
             canvas.parentNode.appendChild(creditContainer);
         }
 
+        if (!defined(leftCreditContainer) || !defined(rightCreditContainer)) {
+            leftCreditContainer = document.createElement('div');
+            leftCreditContainer.style.position = 'absolute';
+            leftCreditContainer.style.bottom = '0';
+            leftCreditContainer.style.left = '0';
+            leftCreditContainer.style.width = '50%';
+            leftCreditContainer.style['text-shadow'] = '0px 0px 2px #000000';
+            leftCreditContainer.style.color = '#ffffff';
+            leftCreditContainer.style['font-size'] = '10px';
+            leftCreditContainer.style['padding-right'] = '5px';
+            canvas.parentNode.appendChild(leftCreditContainer);
+
+            rightCreditContainer = document.createElement('div');
+            rightCreditContainer.style.position = 'absolute';
+            rightCreditContainer.style.bottom = '0';
+            rightCreditContainer.style.left = '50%';
+            rightCreditContainer.style.width = '50%';
+            rightCreditContainer.style['text-shadow'] = '0px 0px 2px #000000';
+            rightCreditContainer.style.color = '#ffffff';
+            rightCreditContainer.style['font-size'] = '10px';
+            rightCreditContainer.style['padding-right'] = '5px';
+            canvas.parentNode.appendChild(rightCreditContainer);
+        }
+
         this._id = createGuid();
-        this._frameState = new FrameState(context, new CreditDisplay(creditContainer));
+        this._frameState = new FrameState(context, new CreditDisplay(creditContainer, leftCreditContainer, rightCreditContainer));
         this._frameState.scene3DOnly = defaultValue(options.scene3DOnly, false);
 
         var ps = new PassState(context);
@@ -560,8 +586,7 @@ define([
         };
 
         this._useWebVR = false;
-        this._cameraVRL = undefined;
-        this._cameraVRR = undefined;
+        this._cameraVR = undefined;
 
         // initial guess at frustums.
         var near = camera.frustum.near;
@@ -984,18 +1009,13 @@ define([
             },
             set : function(value) {
                 this._useWebVR = value;
+                this._frameState.creditDisplay.useWebVR = this._useWebVR;
 
                 if (this._useWebVR) {
-                    this._cameraVRL = new Camera(this);
-                    this._cameraVRL.frustum = new PerspectiveOffCenterFrustum();
-
-                    this._cameraVRR = new Camera(this);
-                    this._cameraVRR.frustum = new PerspectiveOffCenterFrustum();
-
+                    this._cameraVR = new Camera(this);
                     this._deviceOrientationCameraController = new DeviceOrientationCameraController(this);
                 } else {
-                    this._cameraVRL = undefined;
-                    this._cameraVRR = undefined;
+                    this._cameraVR = undefined;
                     this._deviceOrientationCameraController = this._deviceOrientationCameraController && !this._deviceOrientationCameraController.isDestroyed() && this._deviceOrientationCameraController.destroy();
                 }
             }
@@ -1785,11 +1805,11 @@ define([
         this._tweens.update();
         this._camera.update(this._mode);
 
-        if (!this._useWebVR) {
+        //if (!this._useWebVR) {
             this._screenSpaceCameraController.update();
-        } else {
-            this._deviceOrientationCameraController.update();
-        }
+        //} else {
+        //    this._deviceOrientationCameraController.update();
+        //}
     };
 
     var scratchEyeTranslation = new Cartesian3();
@@ -1848,58 +1868,67 @@ define([
 
         var viewport = passState.viewport;
 
-        if (!scene._useWebVR) {
+        if (scene._useWebVR) {
+            if (frameState.mode !== SceneMode.SCENE2D) {
+                // Based on Calculating Stereo pairs by Paul Bourke
+                // http://paulbourke.net/stereographics/stereorender/
+
+                viewport.x = 0;
+                viewport.y = 0;
+                viewport.width = context.drawingBufferWidth * 0.5;
+                viewport.height = context.drawingBufferHeight;
+
+                var savedCamera = Camera.clone(camera, scene._cameraVR);
+
+                var near = camera.frustum.near;
+                var fo = near * 5.0;
+                var eyeSeparation = fo / 30.0;
+                var eyeTranslation = Cartesian3.multiplyByScalar(savedCamera.right, eyeSeparation * 0.5, scratchEyeTranslation);
+
+                camera.frustum.aspectRatio = viewport.width / viewport.height;
+
+                var offset = 0.5 * eyeSeparation * near / fo;
+
+                Cartesian3.add(savedCamera.position, eyeTranslation, camera.position);
+                camera.frustum.xOffset = offset;
+
+                executeCommands(scene, passState);
+
+                viewport.x = passState.viewport.width;
+
+                Cartesian3.subtract(savedCamera.position, eyeTranslation, camera.position);
+                camera.frustum.xOffset = -offset;
+
+                executeCommands(scene, passState);
+
+                Camera.clone(savedCamera, camera);
+            } else {
+                viewport.x = 0;
+                viewport.y = 0;
+                viewport.width = context.drawingBufferWidth * 0.5;
+                viewport.height = context.drawingBufferHeight;
+
+                camera.frustum.top = camera.frustum.right * (viewport.height / viewport.width);
+                camera.frustum.bottom = -camera.frustum.top;
+
+                executeCommands(scene, passState);
+
+                viewport.x = passState.viewport.width;
+
+                executeCommands(scene, passState);
+            }
+        } else {
             viewport.x = 0;
             viewport.y = 0;
             viewport.width = context.drawingBufferWidth;
             viewport.height = context.drawingBufferHeight;
 
             executeCommands(scene, passState);
-        } else {
-            // Based on Calculating Stereo pairs by Paul Bourke
-            // http://paulbourke.net/stereographics/stereorender/
-
-            viewport.x = 0;
-            viewport.y = 0;
-            viewport.width = context.drawingBufferWidth * 0.5;
-            viewport.height = context.drawingBufferHeight;
-
-            var scratchCamera = new Camera(scene);
-            var savedCamera = Camera.clone(camera, scratchCamera);
-            var savedFrustum = camera.frustum;
-
-            // TODO
-            var fo = savedFrustum.near * 5.0;
-            var eyeSeparation = fo / 30.0;
-            var eyeTranslation = Cartesian3.multiplyByScalar(savedCamera.right, eyeSeparation * 0.5, scratchEyeTranslation);
-
-            camera.frustum.aspectRatio = viewport.width / viewport.height;
-
-            var offset = 0.5 * eyeSeparation * savedFrustum.near / fo;
-
-            Cartesian3.add(savedCamera.position, eyeTranslation, camera.position);
-            camera.frustum.xOffset = offset;
-
-            us.update(frameState);
-            executeCommands(scene, passState);
-
-            viewport.x = passState.viewport.width;
-
-            Cartesian3.subtract(savedCamera.position, eyeTranslation, camera.position);
-            camera.frustum.xOffset = -offset;
-
-            us.update(frameState);
-            executeCommands(scene, passState);
-
-            Camera.clone(scratchCamera, camera);
-            camera.frustum = savedFrustum;
         }
 
         resolveFramebuffers(scene, passState);
         executeOverlayCommands(scene, passState);
 
-        // TODO: Add credits to both viewports
-        frameState.creditDisplay.beginFrame();
         frameState.creditDisplay.endFrame();
 
         if (scene.debugShowFramesPerSecond) {
@@ -2328,6 +2357,7 @@ define([
         this._tweens.removeAll();
         this._computeEngine = this._computeEngine && this._computeEngine.destroy();
         this._screenSpaceCameraController = this._screenSpaceCameraController && this._screenSpaceCameraController.destroy();
+        this._deviceOrientationCameraController = this._deviceOrientationCameraController && !this._deviceOrientationCameraController.isDestroyed() && this._deviceOrientationCameraController.destroy();
         this._pickFramebuffer = this._pickFramebuffer && this._pickFramebuffer.destroy();
         this._primitives = this._primitives && this._primitives.destroy();
         this._groundPrimitives = this._groundPrimitives && this._groundPrimitives.destroy();

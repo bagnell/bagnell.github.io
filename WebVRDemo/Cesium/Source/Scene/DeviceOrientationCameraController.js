@@ -46,16 +46,6 @@ define([
         this._removeListener = function() {
             window.removeEventListener('deviceorientation', callback, false);
         };
-
-        this._screenLocked = false;
-
-        var screen = window.screen;
-        if (defined(screen)) {
-            var lockOrientation = screen.lockOrientation || screen.mozLockOrientation || screen.msLockOrientation || (screen.orientation && screen.orientation.lock);
-            if (defined(lockOrientation)) {
-                this._screenLocked = lockOrientation('landscape');
-            }
-        }
     }
 
     var scratchQuaternion1 = new Quaternion();
@@ -108,11 +98,6 @@ define([
     };
 
     DeviceOrientationCameraController.prototype.destroy = function() {
-        if (this._screenLocked) {
-            var screen = window.screen;
-            var unlockOrientation = screen.unlockOrientation || screen.mozUnlockOrientation || screen.msUnlockOrientation || (screen.orientation && screen.orientation.unlock);
-            unlockOrientation();
-        }
         this._removeListener();
         return destroyObject(this);
     };

@@ -49,7 +49,8 @@ require({
         terrainProviderViewModels : [], //Disable terrain changing
         animation : false,
         baseLayerPicker : false,
-        fullscreenButton : true,
+        fullscreenButton : false,//true,
+        vrButton : true,
         geocoder : false,
         homeButton : false,
         infoBox : false,
@@ -61,7 +62,7 @@ require({
         //scene3DOnly : true
     });
 
-    viewer.scene.useWebVR = true;
+    //viewer.scene.useWebVR = true;
     viewer.scene.globe.enableLighting = true;
 
     viewer.terrainProvider = new CesiumTerrainProvider({

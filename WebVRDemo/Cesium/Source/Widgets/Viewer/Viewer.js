@@ -38,7 +38,8 @@ define([
         '../SceneModePicker/SceneModePicker',
         '../SelectionIndicator/SelectionIndicator',
         '../subscribeAndEvaluate',
-        '../Timeline/Timeline'
+        '../Timeline/Timeline',
+        '../VRButton/VRButton'
     ], function(
         BoundingSphere,
         Cartesian3,
@@ -78,7 +79,8 @@ define([
         SceneModePicker,
         SelectionIndicator,
         subscribeAndEvaluate,
-        Timeline) {
+        Timeline,
+        VRButton) {
     "use strict";
 
     var boundingSphereScratch = new BoundingSphere();
@@ -524,14 +526,31 @@ Either specify options.terrainProvider instead or set options.baseLayerPicker to
                     timeline.resize();
                 }
             });
-        } else if (defined(timeline)) {
-            timeline.container.style.right = 0;
+        }
+
+        // VR
+        var vrButton;
+        var vrSubscription;
+        if (options.vrButton === true) {
+            var vrContainer = document.createElement('div');
+            vrContainer.className = 'cesium-viewer-vrContainer';
+            viewerContainer.appendChild(vrContainer);
+            vrButton = new VRButton(vrContainer, options.fullScreenElement, cesiumWidget.scene);
+
+            vrSubscription = subscribeAndEvaluate(vrButton.viewModel, 'isVREnabled', function(isVREnabled) {
+                vrContainer.style.display = isVREnabled ? 'block' : 'none';
+                if (defined(timeline)) {
+                    timeline.container.style.right = vrContainer.clientWidth + 'px';
+                    timeline.resize();
+                }
+            });
         }
 
         //Assign all properties to this instance.  No "this" assignments should
         //take place above this line.
         this._baseLayerPickerDropDown = baseLayerPickerDropDown;
         this._fullscreenSubscription = fullscreenSubscription;
+        this._vrSubscription = vrSubscription
         this._dataSourceChangedListeners = {};
         this._automaticallyTrackDataSourceClocks = defaultValue(options.automaticallyTrackDataSourceClocks, true);
         this._container = container;
@@ -552,6 +571,7 @@ Either specify options.terrainProvider instead or set options.baseLayerPicker to
         this._animation = animation;
         this._timeline = timeline;
         this._fullscreenButton = fullscreenButton;
+        this._vrButton = vrButton;
         this._geocoder = geocoder;
         this._eventHelper = eventHelper;
         this._lastWidth = 0;
@@ -770,6 +790,18 @@ Either specify options.terrainProvider instead or set options.baseLayerPicker to
         fullscreenButton : {
             get : function() {
                 return this._fullscreenButton;
+            }
+        },
+
+        /**
+         * Gets the VRButton.
+         * @memberof Viewer.prototype
+         * @type {VRButton}
+         * @readonly
+         */
+        vrButton : {
+            get : function() {
+                return this._vrButton;
             }
         },
 
@@ -1163,15 +1195,22 @@ Either specify options.terrainProvider instead or set options.baseLayerPicker to
 
         if (timelineExists && window.getComputedStyle(this._timeline.container).visibility !== 'hidden') {
             var fullscreenButton = this._fullscreenButton;
+            var vrButton = this._vrButton;
             var timelineContainer = timeline.container;
             var timelineStyle = timelineContainer.style;
 
             creditBottom = timelineContainer.clientHeight + 3;
             timelineStyle.left = animationWidth + 'px';
 
+            var pixels = 0;
             if (defined(fullscreenButton)) {
-                timelineStyle.right = fullscreenButton.container.clientWidth + 'px';
+                pixels += fullscreenButton.container.clientWidth;
             }
+            if (defined(vrButton)) {
+                pixels += vrButton.container.clientWidth;
+            }
+
+            timelineStyle.right = pixels + 'px';
             timeline.resize();
         }
 
@@ -1260,6 +1299,12 @@ Either specify options.terrainProvider instead or set options.baseLayerPicker to
             this._fullscreenSubscription.dispose();
             this._element.removeChild(this._fullscreenButton.container);
             this._fullscreenButton = this._fullscreenButton.destroy();
+        }
+
+        if (defined(this._vrButton)) {
+            this._vrSubscription.dispose();
+            this._element.removeChild(this._vrButton.container);
+            this._vrButton = this._vrButton.destroy();
         }
 
         if (defined(this._infoBox)) {

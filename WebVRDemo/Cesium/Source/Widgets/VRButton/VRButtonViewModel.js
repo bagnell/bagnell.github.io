@@ -7,7 +7,7 @@ define([
            '../../Core/DeveloperError',
            '../../Core/Fullscreen',
            '../../ThirdParty/knockout',
-           '../../Thirdparty/NoSleep',
+           '../../ThirdParty/NoSleep',
            '../createCommand',
            '../getElement'
        ], function(

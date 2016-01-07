@@ -49,7 +49,7 @@ require({
         terrainProviderViewModels : [], //Disable terrain changing
         animation : false,
         baseLayerPicker : false,
-        fullscreenButton : false,//true,
+        fullscreenButton : true,
         vrButton : true,
         geocoder : false,
         homeButton : false,

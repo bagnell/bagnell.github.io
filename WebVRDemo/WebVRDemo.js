@@ -62,6 +62,15 @@ require({
         //scene3DOnly : true
     });
 
+    /*
+    var viewer = new Cesium.Viewer('cesiumContainer', {
+        vrButton : true,
+        fullscreenButton : false,
+        timeline : false,
+        animation : false
+    });
+    */
+
     //viewer.scene.useWebVR = true;
     viewer.scene.globe.enableLighting = true;
 

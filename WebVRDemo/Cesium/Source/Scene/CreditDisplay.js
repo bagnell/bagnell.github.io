@@ -118,7 +118,7 @@ define([
 
     function removeCreditDomElement(credit, element) {
         var container = element.parentNode;
-        if (!defined(container)) {
+        if (!container) {
             return;
         }
 

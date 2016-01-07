@@ -51,8 +51,10 @@ define([
 
         var screen = window.screen;
         if (defined(screen)) {
-            var lockOrientation = screen.lockOrientation || screen.mozLockOrientation || screen.msLockOrientation;
-            this._screenLocked = lockOrientation('landscape');
+            var lockOrientation = screen.lockOrientation || screen.mozLockOrientation || screen.msLockOrientation || (screen.orientation && screen.orientation.lock);
+            if (defined(lockOrientation)) {
+                this._screenLocked = lockOrientation('landscape');
+            }
         }
     }
 

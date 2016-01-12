@@ -45,7 +45,7 @@ require({
 
     var loadingIndicator = document.getElementById('loadingIndicator');
 
-    var viewer = new Cesium.Viewer('cesiumContainer', {
+    var viewer = new Viewer('cesiumContainer', {
         vrButton : true
     });
 

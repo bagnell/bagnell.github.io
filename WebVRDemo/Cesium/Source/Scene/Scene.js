@@ -207,37 +207,19 @@ define([
 
         var context = new Context(canvas, contextOptions);
         if (!defined(creditContainer)) {
-            creditContainer = document.createElement('div');
-            creditContainer.style.position = 'absolute';
-            creditContainer.style.bottom = '0';
-            creditContainer.style['text-shadow'] = '0px 0px 2px #000000';
-            creditContainer.style.color = '#ffffff';
-            creditContainer.style['font-size'] = '10px';
-            creditContainer.style['padding-right'] = '5px';
+            creditContainer = CreditDisplay.createDefaultContainer();
             canvas.parentNode.appendChild(creditContainer);
         }
 
         if (!defined(leftCreditContainer) || !defined(rightCreditContainer)) {
-            leftCreditContainer = document.createElement('div');
-            leftCreditContainer.style.position = 'absolute';
-            leftCreditContainer.style.bottom = '0';
+            leftCreditContainer = CreditDisplay.createDefaultContainer();
             leftCreditContainer.style.left = '0';
             leftCreditContainer.style.width = '50%';
-            leftCreditContainer.style['text-shadow'] = '0px 0px 2px #000000';
-            leftCreditContainer.style.color = '#ffffff';
-            leftCreditContainer.style['font-size'] = '10px';
-            leftCreditContainer.style['padding-right'] = '5px';
             canvas.parentNode.appendChild(leftCreditContainer);
 
-            rightCreditContainer = document.createElement('div');
-            rightCreditContainer.style.position = 'absolute';
-            rightCreditContainer.style.bottom = '0';
+            rightCreditContainer = CreditDisplay.createDefaultContainer();
             rightCreditContainer.style.left = '50%';
             rightCreditContainer.style.width = '50%';
-            rightCreditContainer.style['text-shadow'] = '0px 0px 2px #000000';
-            rightCreditContainer.style.color = '#ffffff';
-            rightCreditContainer.style['font-size'] = '10px';
-            rightCreditContainer.style['padding-right'] = '5px';
             canvas.parentNode.appendChild(rightCreditContainer);
         }
 
@@ -527,6 +509,14 @@ define([
          * @default true
          */
         this.fxaa = true;
+
+        /**
+         * When <code>true</code>, enables picking using the depth buffer.
+         *
+         * @type Boolean
+         * @default true
+         */
+        this.useDepthPicking = true;
 
         /**
          * The time in milliseconds to wait before checking if the camera has not moved and fire the cameraMoveEnd event.
@@ -1003,17 +993,24 @@ define([
             }
         },
 
+        /**
+         * When <code>true</code>, splits the scene into two viewports with steroscopic views for the left and right eyes.
+         * Used for cardboard and WebVR.
+         * @memberof Scene.prototype
+         * @type {Boolean}
+         * @default false
+         */
         useWebVR : {
             get : function() {
                 return this._useWebVR;
             },
             set : function(value) {
                 this._useWebVR = value;
-                this._frameState.creditDisplay.useWebVR = this._useWebVR;
-
                 if (this._useWebVR) {
                     this._cameraVR = new Camera(this);
-                    this._deviceOrientationCameraController = new DeviceOrientationCameraController(this);
+                    if (!defined(this._deviceOrientationCameraController)) {
+                        this._deviceOrientationCameraController = new DeviceOrientationCameraController(this);
+                    }
                 } else {
                     this._cameraVR = undefined;
                     this._deviceOrientationCameraController = this._deviceOrientationCameraController && !this._deviceOrientationCameraController.isDestroyed() && this._deviceOrientationCameraController.destroy();
@@ -1078,6 +1075,7 @@ define([
         frameState.cullingVolume = camera.frustum.computeCullingVolume(camera.positionWC, camera.directionWC, camera.upWC);
         frameState.occluder = getOccluder(scene);
         frameState.terrainExaggeration = scene._terrainExaggeration;
+        frameState.creditDisplay.useWebVR = scene._useWebVR;
 
         clearPasses(frameState.passes);
     }
@@ -1604,7 +1602,7 @@ define([
             commands.length = frustumCommands.indices[Pass.TRANSLUCENT];
             executeTranslucentCommands(scene, executeCommand, passState, commands);
 
-            if (defined(globeDepth) && environmentState.useGlobeDepthFramebuffer) {
+            if (defined(globeDepth) && environmentState.useGlobeDepthFramebuffer && scene.useDepthPicking) {
                 // PERFORMANCE_IDEA: Use MRT to avoid the extra copy.
                 var pickDepth = getPickDepth(scene, index);
                 pickDepth.update(context, globeDepth.framebuffer.depthStencilTexture);
@@ -1632,6 +1630,73 @@ define([
         var length = commandList.length;
         for (var i = 0; i < length; ++i) {
             commandList[i].execute(context, passState);
+        }
+    }
+
+    function executeViewportCommands(scene, passState) {
+        var context = scene._context;
+        
+        var viewport = passState.viewport;
+
+        var frameState = scene._frameState;
+        var camera = frameState.camera;
+
+        if (scene._useWebVR) {
+            if (frameState.mode !== SceneMode.SCENE2D) {
+                // Based on Calculating Stereo pairs by Paul Bourke
+                // http://paulbourke.net/stereographics/stereorender/
+
+                viewport.x = 0;
+                viewport.y = 0;
+                viewport.width = context.drawingBufferWidth * 0.5;
+                viewport.height = context.drawingBufferHeight;
+
+                var savedCamera = Camera.clone(camera, scene._cameraVR);
+
+                var near = camera.frustum.near;
+                var fo = near * 5.0;
+                var eyeSeparation = fo / 30.0;
+                var eyeTranslation = Cartesian3.multiplyByScalar(savedCamera.right, eyeSeparation * 0.5, scratchEyeTranslation);
+
+                camera.frustum.aspectRatio = viewport.width / viewport.height;
+
+                var offset = 0.5 * eyeSeparation * near / fo;
+
+                Cartesian3.add(savedCamera.position, eyeTranslation, camera.position);
+                camera.frustum.xOffset = offset;
+
+                executeCommands(scene, passState);
+
+                viewport.x = passState.viewport.width;
+
+                Cartesian3.subtract(savedCamera.position, eyeTranslation, camera.position);
+                camera.frustum.xOffset = -offset;
+
+                executeCommands(scene, passState);
+
+                Camera.clone(savedCamera, camera);
+            } else {
+                viewport.x = 0;
+                viewport.y = 0;
+                viewport.width = context.drawingBufferWidth * 0.5;
+                viewport.height = context.drawingBufferHeight;
+
+                camera.frustum.top = camera.frustum.right * (viewport.height / viewport.width);
+                camera.frustum.bottom = -camera.frustum.top;
+
+                executeCommands(scene, passState);
+
+                viewport.x = passState.viewport.width;
+
+                executeCommands(scene, passState);
+            }
+        } else {
+            viewport.x = 0;
+            viewport.y = 0;
+            viewport.width = context.drawingBufferWidth;
+            viewport.height = context.drawingBufferHeight;
+
+            executeCommands(scene, passState);
         }
     }
 
@@ -1852,77 +1917,18 @@ define([
         passState.blendingEnabled = undefined;
         passState.scissorTest = undefined;
 
-        passState.viewport.x = 0;
-        passState.viewport.y = 0;
-        passState.viewport.width = context.drawingBufferWidth;
-        passState.viewport.height = context.drawingBufferHeight;
+        var viewport = passState.viewport;
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = context.drawingBufferWidth;
+        viewport.height = context.drawingBufferHeight;
 
         updateEnvironment(scene);
         updatePrimitives(scene);
         createPotentiallyVisibleSet(scene);
         updateAndClearFramebuffers(scene, passState, defaultValue(scene.backgroundColor, Color.BLACK));
         executeComputeCommands(scene);
-
-        var viewport = passState.viewport;
-
-        if (scene._useWebVR) {
-            if (frameState.mode !== SceneMode.SCENE2D) {
-                // Based on Calculating Stereo pairs by Paul Bourke
-                // http://paulbourke.net/stereographics/stereorender/
-
-                viewport.x = 0;
-                viewport.y = 0;
-                viewport.width = context.drawingBufferWidth * 0.5;
-                viewport.height = context.drawingBufferHeight;
-
-                var savedCamera = Camera.clone(camera, scene._cameraVR);
-
-                var near = camera.frustum.near;
-                var fo = near * 5.0;
-                var eyeSeparation = fo / 30.0;
-                var eyeTranslation = Cartesian3.multiplyByScalar(savedCamera.right, eyeSeparation * 0.5, scratchEyeTranslation);
-
-                camera.frustum.aspectRatio = viewport.width / viewport.height;
-
-                var offset = 0.5 * eyeSeparation * near / fo;
-
-                Cartesian3.add(savedCamera.position, eyeTranslation, camera.position);
-                camera.frustum.xOffset = offset;
-
-                executeCommands(scene, passState);
-
-                viewport.x = passState.viewport.width;
-
-                Cartesian3.subtract(savedCamera.position, eyeTranslation, camera.position);
-                camera.frustum.xOffset = -offset;
-
-                executeCommands(scene, passState);
-
-                Camera.clone(savedCamera, camera);
-            } else {
-                viewport.x = 0;
-                viewport.y = 0;
-                viewport.width = context.drawingBufferWidth * 0.5;
-                viewport.height = context.drawingBufferHeight;
-
-                camera.frustum.top = camera.frustum.right * (viewport.height / viewport.width);
-                camera.frustum.bottom = -camera.frustum.top;
-
-                executeCommands(scene, passState);
-
-                viewport.x = passState.viewport.width;
-
-                executeCommands(scene, passState);
-            }
-        } else {
-            viewport.x = 0;
-            viewport.y = 0;
-            viewport.width = context.drawingBufferWidth;
-            viewport.height = context.drawingBufferHeight;
-
-            executeCommands(scene, passState);
-        }
-
+        executeViewportCommands(scene, passState);
         resolveFramebuffers(scene, passState);
         executeOverlayCommands(scene, passState);
 
@@ -2096,13 +2102,13 @@ define([
 
         us.update(frameState);
 
+        scratchRectangle.x = drawingBufferPosition.x - ((rectangleWidth - 1.0) * 0.5);
+        scratchRectangle.y = (this.drawingBufferHeight - drawingBufferPosition.y) - ((rectangleHeight - 1.0) * 0.5);
+
         var passState = this._pickFramebuffer.begin(scratchRectangle);
         updatePrimitives(this);
         createPotentiallyVisibleSet(this);
         updateAndClearFramebuffers(this, passState, scratchColorZero, true);
-
-        scratchRectangle.x = drawingBufferPosition.x - ((rectangleWidth - 1.0) * 0.5);
-        scratchRectangle.y = (this.drawingBufferHeight - drawingBufferPosition.y) - ((rectangleHeight - 1.0) * 0.5);
 
         executeCommands(this, passState);
         resolveFramebuffers(this, passState);
@@ -2127,6 +2133,10 @@ define([
      * @exception {DeveloperError} 2D is not supported. An orthographic projection matrix is not invertible.
      */
     Scene.prototype.pickPosition = function(windowPosition, result) {
+        if (!this.useDepthPicking) {
+            return undefined;
+        }
+
         //>>includeStart('debug', pragmas.debug);
         if(!defined(windowPosition)) {
             throw new DeveloperError('windowPosition is undefined.');
@@ -2347,7 +2357,7 @@ define([
      *
      * @example
      * scene = scene && scene.destroy();
-     * 
+     *
      * @see Scene#isDestroyed
      */
     Scene.prototype.destroy = function() {

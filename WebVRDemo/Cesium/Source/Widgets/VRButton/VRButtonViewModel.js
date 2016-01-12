@@ -23,26 +23,62 @@ define([
     getElement) {
     "use strict";
 
-    function VRButtonViewModel(vrElement, scene) {
+    function toggleVR(viewModel, scene) {
+        if (viewModel._isVRMode()) {
+            scene.useWebVR = false;
+            if (viewModel._locked) {
+                viewModel._unlockOrientation();
+            }
+            viewModel._noSleep.disable();
+            Fullscreen.exitFullscreen();
+            viewModel._isVRMode(false);
+        } else {
+            if (!Fullscreen.fullscreen) {
+                Fullscreen.requestFullscreen(viewModel._vrElement);
+            }
+            viewModel._noSleep.enable();
+            //if (defined(viewModel._lockOrientation) && !viewModel._locked) {
+            //    viewModel._locked = viewModel._lockOrientation('landscape');
+            //}
+            scene.useWebVR = true;
+            viewModel._isVRMode(true);
+        }
+    }
+
+    /**
+     * The view model for {@link VRButton}.
+     * @alias VRButtonViewModel
+     * @constructor
+     *
+     * @param {Scene} scene The scene.
+     * @param {Element|String} [vrElement=document.body] The element or id to be placed into VR mode.
+     */
+    function VRButtonViewModel(scene, vrElement) {
+        //>>includeStart('debug', pragmas.debug);
+        if (!defined(scene)) {
+            throw new DeveloperError('scene is required.');
+        }
+        //>>includeEnd('debug');
+
         var that = this;
 
-        var tmpIsFullscreen = knockout.observable(Fullscreen.fullscreen);
-        var tmpIsEnabled = knockout.observable(Fullscreen.enabled);
+        this._isEnabled = knockout.observable(Fullscreen.enabled);
+        this._isVRMode = knockout.observable(false);
 
         /**
-         * Gets whether or not VR mode is active.  This property is observable.
+         * Gets whether or not VR mode is active.
          *
          * @type {Boolean}
          */
         this.isVRMode = undefined;
         knockout.defineProperty(this, 'isVRMode', {
             get : function() {
-                return tmpIsFullscreen();
+                return that._isVRMode();
             }
         });
 
         /**
-         * Gets or sets whether or not VR functionality should be enabled.  This property is observable.
+         * Gets or sets whether or not VR functionality should be enabled.
          *
          * @type {Boolean}
          * @see Fullscreen.enabled
@@ -50,10 +86,10 @@ define([
         this.isVREnabled = undefined;
         knockout.defineProperty(this, 'isVREnabled', {
             get : function() {
-                return tmpIsEnabled();
+                return that._isEnabled();
             },
             set : function(value) {
-                tmpIsEnabled(value && Fullscreen.enabled);
+                that._isEnabled(value && Fullscreen.enabled);
             }
         });
 
@@ -64,10 +100,10 @@ define([
          */
         this.tooltip = undefined;
         knockout.defineProperty(this, 'tooltip', function() {
-            if (!this.isFullscreenEnabled) {
+            if (!this.isVREnabled) {
                 return 'VR mode is unavailable';
             }
-            return tmpIsFullscreen() ? 'Exit VR mode' : 'Enter VR mode';
+            return this.isVRMode ? 'Exit VR mode' : 'Enter VR mode';
         });
 
         this._locked = false;
@@ -83,24 +119,15 @@ define([
         this._noSleep = new NoSleep();
 
         this._command = createCommand(function() {
-            if (Fullscreen.fullscreen) {
-                scene.useWebVR = false;
-                if (that._locked) {
-                    that._unlockOrientation();
-                }
-                that._noSleep.disable();
-                Fullscreen.exitFullscreen();
-            } else {
-                Fullscreen.requestFullscreen(that._vrElement);
-                that._noSleep.enable();
-                if (defined(that._lockOrientation) && !that._locked) {
-                    //that._locked = that._lockOrientation('landscape');
-                }
-                scene.useWebVR = true;
-            }
+            toggleVR(that, scene);
         }, knockout.getObservable(this, 'isVREnabled'));
 
         this._vrElement = defaultValue(getElement(vrElement), document.body);
+
+        this._callback = function() {
+            toggleVR(that, scene);
+        };
+        //document.addEventListener(Fullscreen.changeEventName, this._callback);
     }
 
     defineProperties(VRButtonViewModel.prototype, {

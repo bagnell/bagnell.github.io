@@ -45,33 +45,10 @@ require({
 
     var loadingIndicator = document.getElementById('loadingIndicator');
 
-    var viewer = new Viewer('cesiumContainer', {
-        terrainProviderViewModels : [], //Disable terrain changing
-        animation : false,
-        baseLayerPicker : false,
-        fullscreenButton : false,//true,
-        vrButton : true,
-        geocoder : false,
-        homeButton : false,
-        infoBox : false,
-        //sceneModePicker : false,
-        selectionIndicator : false,
-        timeline : false,
-        navigationHelpButton : false,
-        navigationInstructionsInitiallyVisible : false//,
-        //scene3DOnly : true
-    });
-
-    /*
     var viewer = new Cesium.Viewer('cesiumContainer', {
-        vrButton : true,
-        fullscreenButton : false,
-        timeline : false,
-        animation : false
+        vrButton : true
     });
-    */
 
-    //viewer.scene.useWebVR = true;
     viewer.scene.globe.enableLighting = true;
 
     viewer.terrainProvider = new CesiumTerrainProvider({

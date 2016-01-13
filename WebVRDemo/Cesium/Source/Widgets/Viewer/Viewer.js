@@ -191,34 +191,34 @@ define([
         var infoBox = viewer._infoBox;
         var selectionIndicator = viewer._selectionIndicator;
 
-        var display = enabled ? 'none' : 'block';
+        var visibility = enabled ? 'hidden' : 'visible';
 
         if (defined(geocoder)) {
-            geocoder.container.style.display = display;
+            geocoder.container.style.visibility = visibility;
         }
         if (defined(homeButton)) {
-            homeButton.container.style.display = display;
+            homeButton.container.style.visibility = visibility;
         }
         if(defined(sceneModePicker)) {
-            sceneModePicker.container.style.display = display;
+            sceneModePicker.container.style.visibility = visibility;
         }
         if(defined(baseLayerPicker)) {
-            baseLayerPicker.container.style.display = display;
+            baseLayerPicker.container.style.visibility = visibility;
         }
         if (defined(animation)) {
-            animation.container.style.display = display;
+            animation.container.style.visibility = visibility;
         }
         if (defined(timeline)) {
-            timeline.container.style.display = display;
+            timeline.container.style.visibility = visibility;
         }
         if (defined(fullscreenButton) && fullscreenButton.viewModel.isFullscreenEnabled) {
-            fullscreenButton.container.style.display = display;
+            fullscreenButton.container.style.visibility = visibility;
         }
         if (defined(infoBox)) {
-            infoBox.container.style.display = display;
+            infoBox.container.style.visibility = visibility;
         }
         if (defined(selectionIndicator)) {
-            selectionIndicator.container.style.display = display;
+            selectionIndicator.container.style.visibility = visibility;
         }
 
         if (viewer._container) {
@@ -586,8 +586,7 @@ Either specify options.terrainProvider instead or set options.baseLayerPicker to
         var vrButton;
         var vrSubscription;
         var vrModeSubscription;
-        var vrCallback;
-        if (options.vrButton === true) {
+        if (options.vrButton) {
             var vrContainer = document.createElement('div');
             vrContainer.className = 'cesium-viewer-vrContainer';
             viewerContainer.appendChild(vrContainer);
@@ -607,11 +606,6 @@ Either specify options.terrainProvider instead or set options.baseLayerPicker to
             vrModeSubscription = subscribeAndEvaluate(vrButton.viewModel, 'isVRMode', function(isVRMode) {
                 enableVRUI(that, isVRMode);
             });
-
-            vrCallback = function() {
-                //enableVRUI(that, false);
-            };
-            document.addEventListener(Fullscreen.changeEventName, vrCallback);
         }
 
         //Assign all properties to this instance.  No "this" assignments should

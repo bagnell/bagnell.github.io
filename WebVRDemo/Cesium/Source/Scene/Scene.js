@@ -196,8 +196,6 @@ define([
         var canvas = options.canvas;
         var contextOptions = options.contextOptions;
         var creditContainer = options.creditContainer;
-        var leftCreditContainer = options.leftCreditContainer;
-        var rightCreditContainer = options.rightCreditContainer;
 
         //>>includeStart('debug', pragmas.debug);
         if (!defined(canvas)) {
@@ -207,24 +205,18 @@ define([
 
         var context = new Context(canvas, contextOptions);
         if (!defined(creditContainer)) {
-            creditContainer = CreditDisplay.createDefaultContainer();
+            creditContainer = document.createElement('div');
+            creditContainer.style.position = 'absolute';
+            creditContainer.style.bottom = '0';
+            creditContainer.style['text-shadow'] = '0px 0px 2px #000000';
+            creditContainer.style.color = '#ffffff';
+            creditContainer.style['font-size'] = '10px';
+            creditContainer.style['padding-right'] = '5px';
             canvas.parentNode.appendChild(creditContainer);
         }
 
-        if (!defined(leftCreditContainer) || !defined(rightCreditContainer)) {
-            leftCreditContainer = CreditDisplay.createDefaultContainer();
-            leftCreditContainer.style.left = '0';
-            leftCreditContainer.style.width = '50%';
-            canvas.parentNode.appendChild(leftCreditContainer);
-
-            rightCreditContainer = CreditDisplay.createDefaultContainer();
-            rightCreditContainer.style.left = '50%';
-            rightCreditContainer.style.width = '50%';
-            canvas.parentNode.appendChild(rightCreditContainer);
-        }
-
         this._id = createGuid();
-        this._frameState = new FrameState(context, new CreditDisplay(creditContainer, leftCreditContainer, rightCreditContainer));
+        this._frameState = new FrameState(context, new CreditDisplay(creditContainer));
         this._frameState.scene3DOnly = defaultValue(options.scene3DOnly, false);
 
         var ps = new PassState(context);
@@ -1007,11 +999,13 @@ define([
             set : function(value) {
                 this._useWebVR = value;
                 if (this._useWebVR) {
+                    this._frameState.creditDisplay.container.style.visibility = 'hidden';
                     this._cameraVR = new Camera(this);
                     if (!defined(this._deviceOrientationCameraController)) {
                         this._deviceOrientationCameraController = new DeviceOrientationCameraController(this);
                     }
                 } else {
+                    this._frameState.creditDisplay.container.style.visibility = 'visible';
                     this._cameraVR = undefined;
                     this._deviceOrientationCameraController = this._deviceOrientationCameraController && !this._deviceOrientationCameraController.isDestroyed() && this._deviceOrientationCameraController.destroy();
                 }
@@ -1075,7 +1069,6 @@ define([
         frameState.cullingVolume = camera.frustum.computeCullingVolume(camera.positionWC, camera.directionWC, camera.upWC);
         frameState.occluder = getOccluder(scene);
         frameState.terrainExaggeration = scene._terrainExaggeration;
-        frameState.creditDisplay.useWebVR = scene._useWebVR;
 
         clearPasses(frameState.passes);
     }
@@ -1652,6 +1645,7 @@ define([
                 viewport.height = context.drawingBufferHeight;
 
                 var savedCamera = Camera.clone(camera, scene._cameraVR);
+                var savedAspectRatio = savedCamera.frustum.aspectRatio;
 
                 var near = camera.frustum.near;
                 var fo = near * 5.0;
@@ -1675,11 +1669,15 @@ define([
                 executeCommands(scene, passState);
 
                 Camera.clone(savedCamera, camera);
+                camera.frustum.aspectRatio = savedAspectRatio;
+                camera.frustum.xOffset = 0.0;
             } else {
                 viewport.x = 0;
                 viewport.y = 0;
                 viewport.width = context.drawingBufferWidth * 0.5;
                 viewport.height = context.drawingBufferHeight;
+
+                var savedTop = camera.frustum.top;
 
                 camera.frustum.top = camera.frustum.right * (viewport.height / viewport.width);
                 camera.frustum.bottom = -camera.frustum.top;
@@ -1689,6 +1687,9 @@ define([
                 viewport.x = passState.viewport.width;
 
                 executeCommands(scene, passState);
+
+                camera.frustum.top = savedTop;
+                camera.frustum.bottom = -savedTop;
             }
         } else {
             viewport.x = 0;

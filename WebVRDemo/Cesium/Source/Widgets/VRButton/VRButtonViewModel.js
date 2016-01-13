@@ -37,9 +37,9 @@ define([
                 Fullscreen.requestFullscreen(viewModel._vrElement);
             }
             viewModel._noSleep.enable();
-            //if (defined(viewModel._lockOrientation) && !viewModel._locked) {
-            //    viewModel._locked = viewModel._lockOrientation('landscape');
-            //}
+            if (defined(viewModel._lockOrientation) && !viewModel._locked) {
+                viewModel._locked = viewModel._lockOrientation('landscape');
+            }
             scene.useWebVR = true;
             viewModel._isVRMode(true);
         }
@@ -125,9 +125,9 @@ define([
         this._vrElement = defaultValue(getElement(vrElement), document.body);
 
         this._callback = function() {
-            toggleVR(that, scene);
+            //toggleVR(that, scene);
         };
-        //document.addEventListener(Fullscreen.changeEventName, this._callback);
+        document.addEventListener(Fullscreen.changeEventName, this._callback);
     }
 
     defineProperties(VRButtonViewModel.prototype, {

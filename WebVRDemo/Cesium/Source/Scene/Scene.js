@@ -1868,9 +1868,8 @@ define([
         this._tweens.update();
         this._camera.update(this._mode);
 
-        if (!this._useWebVR || this._mode === SceneMode.SCENE2D) {
-            this._screenSpaceCameraController.update();
-        } else {
+        this._screenSpaceCameraController.update();
+        if (defined(this._deviceOrientationCameraController)) {
             this._deviceOrientationCameraController.update();
         }
     };

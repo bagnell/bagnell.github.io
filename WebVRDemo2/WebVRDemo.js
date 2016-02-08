@@ -93,7 +93,7 @@ require({
                                          })]),
                                          position : position,
                                          model : {
-                                             uri : '../../SampleData/models/CesiumBalloon/CesiumBalloon.glb',
+                                             uri : './Model/CesiumBalloon.glb',
                                              minimumPixelSize : 64
                                          }
                                      });

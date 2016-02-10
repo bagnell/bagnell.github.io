@@ -119,7 +119,7 @@ require({
         }
 
         when(model.readyPromise).then(function() {
-            camera.position = new Cartesian3(1.0, 0.0, 0.0);
+            camera.position = new Cartesian3(0.5, 0.0, 0.0);
             camera.direction = new Cartesian3(1.0, 0.0, 0.0);
             camera.up = new Cartesian3(0.0, 0.0, 1.0);
             camera.right = new Cartesian3(0.0, -1.0, 0.0);

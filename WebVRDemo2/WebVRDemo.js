@@ -17,6 +17,7 @@ require({
            'Cesium/Core/Matrix4',
            'Cesium/Core/TimeInterval',
            'Cesium/Core/TimeIntervalCollection',
+           'Cesium/Core/Transforms',
            'Cesium/DataSources/PolylineGlowMaterialProperty',
            'Cesium/DataSources/SampledPositionProperty',
            'Cesium/DataSources/VelocityOrientationProperty',
@@ -37,6 +38,7 @@ require({
     Matrix4,
     TimeInterval,
     TimeIntervalCollection,
+    Transforms,
     PolylineGlowMaterialProperty,
     SampledPositionProperty,
     VelocityOrientationProperty,
@@ -103,45 +105,44 @@ require({
                                                 interpolationAlgorithm : HermitePolynomialApproximation
                                             });
 
+    // Set initial camera position and orientation to be when in the model's reference frame.
     var camera = viewer.camera;
+    camera.position = new Cartesian3(0.25, 0.0, 0.0);
+    camera.direction = new Cartesian3(1.0, 0.0, 0.0);
+    camera.up = new Cartesian3(0.0, 0.0, 1.0);
+    camera.right = new Cartesian3(0.0, -1.0, 0.0);
 
-    function updateCameraOnLoad() {
-        var model;
-
-        var primitives = viewer.scene.primitives;
-        var length = primitives.length;
-        for (var i = 0; i < length; ++i) {
-            var prim = primitives.get(i);
-            if (prim.id === entity) {
-                model = prim;
-                break;
-            }
+    viewer.scene.preRender.addEventListener(function(scene, time) {
+        var position = entity.position.getValue(time);
+        if (!defined(position)) {
+            return;
         }
 
-        when(model.readyPromise).then(function() {
-            camera.position = new Cartesian3(0.5, 0.0, 0.0);
-            camera.direction = new Cartesian3(1.0, 0.0, 0.0);
-            camera.up = new Cartesian3(0.0, 0.0, 1.0);
-            camera.right = new Cartesian3(0.0, -1.0, 0.0);
+        var transform;
+        if (!defined(entity.orientation)) {
+            transform = Transforms.eastNorthUpToFixedFrame(position);
+        } else {
+            var orientation = entity.orientation.getValue(time);
+            if (!defined(orientation)) {
+                return;
+            }
 
-            viewer.scene.preRender.addEventListener(function() {
-                var offset = Cartesian3.clone(camera.position);
-                var direction = Cartesian3.clone(camera.direction);
-                var up = Cartesian3.clone(camera.up);
+            transform = Matrix4.fromRotationTranslation(Matrix3.fromQuaternion(orientation), position);
+        }
 
-                camera.lookAtTransform(model.modelMatrix);
+        // Save camera state
+        var offset = Cartesian3.clone(camera.position);
+        var direction = Cartesian3.clone(camera.direction);
+        var up = Cartesian3.clone(camera.up);
 
-                Cartesian3.clone(offset, camera.position);
-                Cartesian3.clone(direction, camera.direction);
-                Cartesian3.clone(up, camera.up);
-                Cartesian3.cross(direction, up, camera.right);
-            });
-        });
-    }
+        // Set camera to be in model's reference frame.
+        camera.lookAtTransform(transform);
 
-    var removeEventListener = viewer.scene.postRender.addEventListener(function() {
-        updateCameraOnLoad();
-        removeEventListener();
+        // Reset the camera state to the saved state so it appears fixed in the model's frame.
+        Cartesian3.clone(offset, camera.position);
+        Cartesian3.clone(direction, camera.direction);
+        Cartesian3.clone(up, camera.up);
+        Cartesian3.cross(direction, up, camera.right);
     });
 
     loadingIndicator.style.display = 'none';

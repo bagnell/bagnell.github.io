@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './defined',
         './DeveloperError',
@@ -7,7 +6,7 @@ define([
         defined,
         DeveloperError,
         isArray) {
-    "use strict";
+    'use strict';
 
     /**
      * Parses a query string into an object, where the keys and values of the object are the
@@ -27,7 +26,7 @@ define([
      * //   key2 : 'a/b',
      * //   key3 : ['x', 'y']
      * // }
-     * 
+     *
      * @see objectToQuery
      */
     function queryToObject(queryString) {

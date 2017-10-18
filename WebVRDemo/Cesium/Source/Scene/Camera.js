@@ -1,5 +1,5 @@
-/*global define*/
 define([
+        '../Core/BoundingSphere',
         '../Core/Cartesian2',
         '../Core/Cartesian3',
         '../Core/Cartesian4',
@@ -13,18 +13,24 @@ define([
         '../Core/EllipsoidGeodesic',
         '../Core/Event',
         '../Core/HeadingPitchRange',
+        '../Core/HeadingPitchRoll',
+        '../Core/Intersect',
         '../Core/IntersectionTests',
         '../Core/Math',
         '../Core/Matrix3',
         '../Core/Matrix4',
+        '../Core/OrthographicFrustum',
+        '../Core/OrthographicOffCenterFrustum',
+        '../Core/PerspectiveFrustum',
         '../Core/Quaternion',
         '../Core/Ray',
         '../Core/Rectangle',
         '../Core/Transforms',
         './CameraFlightPath',
-        './PerspectiveFrustum',
+        './MapMode2D',
         './SceneMode'
     ], function(
+        BoundingSphere,
         Cartesian2,
         Cartesian3,
         Cartesian4,
@@ -38,18 +44,23 @@ define([
         EllipsoidGeodesic,
         Event,
         HeadingPitchRange,
+        HeadingPitchRoll,
+        Intersect,
         IntersectionTests,
         CesiumMath,
         Matrix3,
         Matrix4,
+        OrthographicFrustum,
+        OrthographicOffCenterFrustum,
+        PerspectiveFrustum,
         Quaternion,
         Ray,
         Rectangle,
         Transforms,
         CameraFlightPath,
-        PerspectiveFrustum,
+        MapMode2D,
         SceneMode) {
-    "use strict";
+    'use strict';
 
     /**
      * The camera is defined by a position, orientation, and view frustum.
@@ -182,21 +193,26 @@ define([
         this.constrainedAxis = undefined;
         /**
          * The factor multiplied by the the map size used to determine where to clamp the camera position
-         * when translating across the surface. The default is 1.5. Only valid for 2D and Columbus view.
+         * when zooming out from the surface. The default is 1.5. Only valid for 2D and the map is rotatable.
          * @type {Number}
          * @default 1.5
          */
-        this.maximumTranslateFactor = 1.5;
-        /**
-         * The factor multiplied by the the map size used to determine where to clamp the camera position
-         * when zooming out from the surface. The default is 2.5. Only valid for 2D.
-         * @type {Number}
-         * @default 2.5
-         */
-        this.maximumZoomFactor = 2.5;
+        this.maximumZoomFactor = 1.5;
 
         this._moveStart = new Event();
         this._moveEnd = new Event();
+
+        this._changed = new Event();
+        this._changedPosition = undefined;
+        this._changedDirection = undefined;
+        this._changedFrustum = undefined;
+
+        /**
+         * The amount the camera has to change before the <code>changed</code> event is raised. The value is a percentage in the [0, 1] range.
+         * @type {number}
+         * @default 0.5
+         */
+        this.percentageChanged = 0.5;
 
         this._viewMatrix = new Matrix4();
         this._invViewMatrix = new Matrix4();
@@ -208,6 +224,7 @@ define([
         this._projection = projection;
         this._maxCoord = projection.project(new Cartographic(Math.PI, CesiumMath.PI_OVER_TWO));
         this._max2Dfrustum = undefined;
+        this._suspendTerrainAdjustment = false;
 
         // set default view
         rectangleCameraPosition3D(this, Camera.DEFAULT_VIEW_RECTANGLE, this.position, true);
@@ -246,32 +263,171 @@ define([
      */
     Camera.DEFAULT_VIEW_FACTOR = 0.5;
 
+    /**
+     * The default heading/pitch/range that is used when the camera flies to a location that contains a bounding sphere.
+     * @type HeadingPitchRange
+     */
+    Camera.DEFAULT_OFFSET = new HeadingPitchRange(0.0, -CesiumMath.PI_OVER_FOUR, 0.0);
+
     function updateViewMatrix(camera) {
-        var r = camera._right;
-        var u = camera._up;
-        var d = camera._direction;
-        var e = camera._position;
-
-        var viewMatrix = camera._viewMatrix;
-        viewMatrix[0] = r.x;
-        viewMatrix[1] = u.x;
-        viewMatrix[2] = -d.x;
-        viewMatrix[3] = 0.0;
-        viewMatrix[4] = r.y;
-        viewMatrix[5] = u.y;
-        viewMatrix[6] = -d.y;
-        viewMatrix[7] = 0.0;
-        viewMatrix[8] = r.z;
-        viewMatrix[9] = u.z;
-        viewMatrix[10] = -d.z;
-        viewMatrix[11] = 0.0;
-        viewMatrix[12] = -Cartesian3.dot(r, e);
-        viewMatrix[13] = -Cartesian3.dot(u, e);
-        viewMatrix[14] = Cartesian3.dot(d, e);
-        viewMatrix[15] = 1.0;
-
-        Matrix4.multiply(viewMatrix, camera._actualInvTransform, camera._viewMatrix);
+        Matrix4.computeView(camera._position, camera._direction, camera._up, camera._right, camera._viewMatrix);
+        Matrix4.multiply(camera._viewMatrix, camera._actualInvTransform, camera._viewMatrix);
         Matrix4.inverseTransformation(camera._viewMatrix, camera._invViewMatrix);
+    }
+
+    Camera.prototype._updateCameraChanged = function() {
+        var camera = this;
+
+        if (camera._changed.numberOfListeners === 0) {
+            return;
+        }
+
+        var percentageChanged = camera.percentageChanged;
+
+        if (camera._mode === SceneMode.SCENE2D) {
+            if (!defined(camera._changedFrustum)) {
+                camera._changedPosition = Cartesian3.clone(camera.position, camera._changedPosition);
+                camera._changedFrustum = camera.frustum.clone();
+                return;
+            }
+
+            var position = camera.position;
+            var lastPosition = camera._changedPosition;
+
+            var frustum = camera.frustum;
+            var lastFrustum = camera._changedFrustum;
+
+            var x0 = position.x + frustum.left;
+            var x1 = position.x + frustum.right;
+            var x2 = lastPosition.x + lastFrustum.left;
+            var x3 = lastPosition.x + lastFrustum.right;
+
+            var y0 = position.y + frustum.bottom;
+            var y1 = position.y + frustum.top;
+            var y2 = lastPosition.y + lastFrustum.bottom;
+            var y3 = lastPosition.y + lastFrustum.top;
+
+            var leftX = Math.max(x0, x2);
+            var rightX = Math.min(x1, x3);
+            var bottomY = Math.max(y0, y2);
+            var topY = Math.min(y1, y3);
+
+            var areaPercentage;
+            if (leftX >= rightX || bottomY >= y1) {
+                areaPercentage = 1.0;
+            } else {
+                var areaRef = lastFrustum;
+                if (x0 < x2 && x1 > x3 && y0 < y2 && y1 > y3) {
+                    areaRef = frustum;
+                }
+                areaPercentage = 1.0 - ((rightX - leftX) * (topY - bottomY)) / ((areaRef.right - areaRef.left) * (areaRef.top - areaRef.bottom));
+            }
+
+            if (areaPercentage > percentageChanged) {
+                camera._changed.raiseEvent(areaPercentage);
+                camera._changedPosition = Cartesian3.clone(camera.position, camera._changedPosition);
+                camera._changedFrustum = camera.frustum.clone(camera._changedFrustum);
+            }
+            return;
+        }
+
+        if (!defined(camera._changedDirection)) {
+            camera._changedPosition = Cartesian3.clone(camera.positionWC, camera._changedPosition);
+            camera._changedDirection = Cartesian3.clone(camera.directionWC, camera._changedDirection);
+            return;
+        }
+
+        var dirAngle = CesiumMath.acosClamped(Cartesian3.dot(camera.directionWC, camera._changedDirection));
+
+        var dirPercentage;
+        if (defined(camera.frustum.fovy)) {
+            dirPercentage = dirAngle / (camera.frustum.fovy * 0.5);
+        } else {
+            dirPercentage = dirAngle;
+        }
+
+        var distance = Cartesian3.distance(camera.positionWC, camera._changedPosition);
+        var heightPercentage = distance / camera.positionCartographic.height;
+
+        if (dirPercentage > percentageChanged || heightPercentage > percentageChanged) {
+            camera._changed.raiseEvent(Math.max(dirPercentage, heightPercentage));
+            camera._changedPosition = Cartesian3.clone(camera.positionWC, camera._changedPosition);
+            camera._changedDirection = Cartesian3.clone(camera.directionWC, camera._changedDirection);
+        }
+    };
+
+    var scratchAdjustHeightTransform = new Matrix4();
+    var scratchAdjustHeightCartographic = new Cartographic();
+
+    Camera.prototype._adjustHeightForTerrain = function() {
+        var scene = this._scene;
+
+        var screenSpaceCameraController = scene.screenSpaceCameraController;
+        var enableCollisionDetection = screenSpaceCameraController.enableCollisionDetection;
+        var minimumCollisionTerrainHeight = screenSpaceCameraController.minimumCollisionTerrainHeight;
+        var minimumZoomDistance = screenSpaceCameraController.minimumZoomDistance;
+
+        if (this._suspendTerrainAdjustment || !enableCollisionDetection) {
+            return;
+        }
+
+        var mode = this._mode;
+        var globe = scene.globe;
+
+        if (!defined(globe) || mode === SceneMode.SCENE2D || mode === SceneMode.MORPHING) {
+            return;
+        }
+
+        var ellipsoid = globe.ellipsoid;
+        var projection = scene.mapProjection;
+
+        var transform;
+        var mag;
+        if (!Matrix4.equals(this.transform, Matrix4.IDENTITY)) {
+            transform = Matrix4.clone(this.transform, scratchAdjustHeightTransform);
+            mag = Cartesian3.magnitude(this.position);
+            this._setTransform(Matrix4.IDENTITY);
+        }
+
+        var cartographic = scratchAdjustHeightCartographic;
+        if (mode === SceneMode.SCENE3D) {
+            ellipsoid.cartesianToCartographic(this.position, cartographic);
+        } else {
+            projection.unproject(this.position, cartographic);
+        }
+
+        var heightUpdated = false;
+        if (cartographic.height < minimumCollisionTerrainHeight) {
+            var height = globe.getHeight(cartographic);
+            if (defined(height)) {
+                height += minimumZoomDistance;
+                if (cartographic.height < height) {
+                    cartographic.height = height;
+                    if (mode === SceneMode.SCENE3D) {
+                        ellipsoid.cartographicToCartesian(cartographic, this.position);
+                    } else {
+                        projection.project(cartographic, this.position);
+                    }
+                    heightUpdated = true;
+                }
+            }
+        }
+
+        if (defined(transform)) {
+            this._setTransform(transform);
+            if (heightUpdated) {
+                Cartesian3.normalize(this.position, this.position);
+                Cartesian3.negate(this.position, this.direction);
+                Cartesian3.multiplyByScalar(this.position, Math.max(mag, minimumZoomDistance), this.position);
+                Cartesian3.normalize(this.direction, this.direction);
+                Cartesian3.cross(this.direction, this.up, this.right);
+                Cartesian3.cross(this.right, this.direction, this.up);
+            }
+        }
+    };
+
+    function convertTransformForColumbusView(camera) {
+        Transforms.basisTo2D(camera._projection, camera._transform, camera._actualTransform);
     }
 
     var scratchCartographic = new Cartographic();
@@ -282,58 +438,6 @@ define([
     var scratchCartesian4NewXAxis = new Cartesian4();
     var scratchCartesian4NewYAxis = new Cartesian4();
     var scratchCartesian4NewZAxis = new Cartesian4();
-
-    function convertTransformForColumbusView(camera) {
-        var projection = camera._projection;
-        var ellipsoid = projection.ellipsoid;
-
-        var origin = Matrix4.getColumn(camera._transform, 3, scratchCartesian4Origin);
-        var cartographic = ellipsoid.cartesianToCartographic(origin, scratchCartographic);
-
-        var projectedPosition = projection.project(cartographic, scratchCartesian3Projection);
-        var newOrigin = scratchCartesian4NewOrigin;
-        newOrigin.x = projectedPosition.z;
-        newOrigin.y = projectedPosition.x;
-        newOrigin.z = projectedPosition.y;
-        newOrigin.w = 1.0;
-
-        var xAxis = Cartesian4.add(Matrix4.getColumn(camera._transform, 0, scratchCartesian3), origin, scratchCartesian3);
-        ellipsoid.cartesianToCartographic(xAxis, cartographic);
-
-        projection.project(cartographic, projectedPosition);
-        var newXAxis = scratchCartesian4NewXAxis;
-        newXAxis.x = projectedPosition.z;
-        newXAxis.y = projectedPosition.x;
-        newXAxis.z = projectedPosition.y;
-        newXAxis.w = 0.0;
-
-        Cartesian3.subtract(newXAxis, newOrigin, newXAxis);
-
-        var yAxis = Cartesian4.add(Matrix4.getColumn(camera._transform, 1, scratchCartesian3), origin, scratchCartesian3);
-        ellipsoid.cartesianToCartographic(yAxis, cartographic);
-
-        projection.project(cartographic, projectedPosition);
-        var newYAxis = scratchCartesian4NewYAxis;
-        newYAxis.x = projectedPosition.z;
-        newYAxis.y = projectedPosition.x;
-        newYAxis.z = projectedPosition.y;
-        newYAxis.w = 0.0;
-
-        Cartesian3.subtract(newYAxis, newOrigin, newYAxis);
-
-        var newZAxis = scratchCartesian4NewZAxis;
-        Cartesian3.cross(newXAxis, newYAxis, newZAxis);
-        Cartesian3.normalize(newZAxis, newZAxis);
-        Cartesian3.cross(newYAxis, newZAxis, newXAxis);
-        Cartesian3.normalize(newXAxis, newXAxis);
-        Cartesian3.cross(newZAxis, newXAxis, newYAxis);
-        Cartesian3.normalize(newYAxis, newYAxis);
-
-        Matrix4.setColumn(camera._actualTransform, 0, newXAxis, camera._actualTransform);
-        Matrix4.setColumn(camera._actualTransform, 1, newYAxis, camera._actualTransform);
-        Matrix4.setColumn(camera._actualTransform, 2, newZAxis, camera._actualTransform);
-        Matrix4.setColumn(camera._actualTransform, 3, newOrigin, camera._actualTransform);
-    }
 
     function convertTransformFor2D(camera) {
         var projection = camera._projection;
@@ -418,18 +522,21 @@ define([
         var direction = camera._direction;
         var directionChanged = !Cartesian3.equals(direction, camera.direction);
         if (directionChanged) {
+            Cartesian3.normalize(camera.direction, camera.direction);
             direction = Cartesian3.clone(camera.direction, camera._direction);
         }
 
         var up = camera._up;
         var upChanged = !Cartesian3.equals(up, camera.up);
         if (upChanged) {
+            Cartesian3.normalize(camera.up, camera.up);
             up = Cartesian3.clone(camera.up, camera._up);
         }
 
         var right = camera._right;
         var rightChanged = !Cartesian3.equals(right, camera.right);
         if (rightChanged) {
+            Cartesian3.normalize(camera.right, camera.right);
             right = Cartesian3.clone(camera.right, camera._right);
         }
 
@@ -487,9 +594,6 @@ define([
             var det = Cartesian3.dot(direction, Cartesian3.cross(up, right, scratchCartesian));
             if (Math.abs(1.0 - det) > CesiumMath.EPSILON2) {
                 //orthonormalize axes
-                direction = Cartesian3.normalize(direction, camera._direction);
-                Cartesian3.clone(direction, camera.direction);
-
                 var invUpMag = 1.0 / Cartesian3.magnitudeSquared(up);
                 var scalar = Cartesian3.dot(up, direction) * invUpMag;
                 var w0 = Cartesian3.multiplyByScalar(direction, scalar, scratchCartesian);
@@ -503,14 +607,17 @@ define([
 
         if (directionChanged || transformChanged) {
             camera._directionWC = Matrix4.multiplyByPointAsVector(transform, direction, camera._directionWC);
+            Cartesian3.normalize(camera._directionWC, camera._directionWC);
         }
 
         if (upChanged || transformChanged) {
             camera._upWC = Matrix4.multiplyByPointAsVector(transform, up, camera._upWC);
+            Cartesian3.normalize(camera._upWC, camera._upWC);
         }
 
         if (rightChanged || transformChanged) {
             camera._rightWC = Matrix4.multiplyByPointAsVector(transform, right, camera._rightWC);
+            Cartesian3.normalize(camera._rightWC, camera._rightWC);
         }
 
         if (positionChanged || directionChanged || upChanged || rightChanged || transformChanged) {
@@ -618,6 +725,7 @@ define([
          * @memberof Camera.prototype
          *
          * @type {Cartographic}
+         * @readonly
          */
         positionCartographic : {
             get : function() {
@@ -690,7 +798,7 @@ define([
          * @readonly
          */
         heading : {
-            get : function () {
+            get : function() {
                 if (this._mode !== SceneMode.MORPHING) {
                     var ellipsoid = this._projection.ellipsoid;
 
@@ -776,7 +884,7 @@ define([
         },
 
         /**
-         * Gets the event that will be raised at when the camera has stopped moving.
+         * Gets the event that will be raised when the camera has stopped moving.
          * @memberof Camera.prototype
          * @type {Event}
          * @readonly
@@ -784,6 +892,18 @@ define([
         moveEnd : {
             get : function() {
                 return this._moveEnd;
+            }
+        },
+
+        /**
+         * Gets the event that will be raised when the camera has changed by <code>percentageChanged</code>.
+         * @memberof Camera.prototype
+         * @type {Event}
+         * @readonly
+         */
+        changed : {
+            get : function() {
+                return this._changed;
             }
         }
     });
@@ -795,6 +915,13 @@ define([
         //>>includeStart('debug', pragmas.debug);
         if (!defined(mode)) {
             throw new DeveloperError('mode is required.');
+        }
+        if (mode === SceneMode.SCENE2D && !(this.frustum instanceof OrthographicOffCenterFrustum)) {
+            throw new DeveloperError('An OrthographicOffCenterFrustum is required in 2D.');
+        }
+        if ((mode === SceneMode.SCENE3D || mode === SceneMode.COLUMBUS_VIEW) &&
+            (!(this.frustum instanceof PerspectiveFrustum) && !(this.frustum instanceof OrthographicFrustum))) {
+            throw new DeveloperError('A PerspectiveFrustum or OrthographicFrustum is required in 3D and Columbus view');
         }
         //>>includeEnd('debug');
 
@@ -809,8 +936,7 @@ define([
             var frustum = this._max2Dfrustum = this.frustum.clone();
 
             //>>includeStart('debug', pragmas.debug);
-            if (!defined(frustum.left) || !defined(frustum.right) ||
-               !defined(frustum.top) || !defined(frustum.bottom)) {
+            if (!(frustum instanceof OrthographicOffCenterFrustum)) {
                 throw new DeveloperError('The camera frustum is expected to be orthographic for 2D camera control.');
             }
             //>>includeEnd('debug');
@@ -822,6 +948,17 @@ define([
             frustum.top = ratio * frustum.right;
             frustum.bottom = -frustum.top;
         }
+
+        if (this._mode === SceneMode.SCENE2D) {
+            clampMove2D(this, this.position);
+        }
+
+        var globe = this._scene.globe;
+        var globeFinishedUpdating = !defined(globe) || (globe._surface.tileProvider.ready && globe._surface._tileLoadQueueHigh.length === 0 && globe._surface._tileLoadQueueMedium.length === 0 && globe._surface._tileLoadQueueLow.length === 0 && globe._surface._debug.tilesWaitingForChildren === 0);
+        if (this._suspendTerrainAdjustment) {
+            this._suspendTerrainAdjustment = !globeFinishedUpdating;
+        }
+        this._adjustHeightForTerrain();
     };
 
     var setTransformPosition = new Cartesian3();
@@ -846,6 +983,59 @@ define([
         updateMembers(this);
     };
 
+    var scratchAdjustOrtghographicFrustumMousePosition = new Cartesian2();
+    var pickGlobeScratchRay = new Ray();
+    var scratchRayIntersection = new Cartesian3();
+    var scratchDepthIntersection = new Cartesian3();
+
+    Camera.prototype._adjustOrthographicFrustum = function(zooming) {
+        if (!(this.frustum instanceof OrthographicFrustum)) {
+            return;
+        }
+
+        if (!zooming && this._positionCartographic.height < 150000.0) {
+            return;
+        }
+
+        if (!Matrix4.equals(Matrix4.IDENTITY, this.transform)) {
+            this.frustum.width = Cartesian3.magnitude(this.position);
+            return;
+        }
+
+        var scene = this._scene;
+        var globe = scene._globe;
+        var rayIntersection;
+        var depthIntersection;
+
+        if (defined(globe)) {
+            var mousePosition = scratchAdjustOrtghographicFrustumMousePosition;
+            mousePosition.x = scene.drawingBufferWidth / 2.0;
+            mousePosition.y = scene.drawingBufferHeight / 2.0;
+
+            var ray = this.getPickRay(mousePosition, pickGlobeScratchRay);
+            rayIntersection = globe.pick(ray, scene, scratchRayIntersection);
+
+            if (scene.pickPositionSupported) {
+                depthIntersection = scene.pickPositionWorldCoordinates(mousePosition, scratchDepthIntersection);
+            }
+
+            if (defined(rayIntersection) && defined(depthIntersection)) {
+                var depthDistance = defined(depthIntersection) ? Cartesian3.distance(depthIntersection, this.positionWC) : Number.POSITIVE_INFINITY;
+                var rayDistance = defined(rayIntersection) ? Cartesian3.distance(rayIntersection, this.positionWC) : Number.POSITIVE_INFINITY;
+                this.frustum.width = Math.min(depthDistance, rayDistance);
+            } else if (defined(depthIntersection)) {
+                this.frustum.width = Cartesian3.distance(depthIntersection, this.positionWC);
+            } else if (defined(rayIntersection)) {
+                this.frustum.width = Cartesian3.distance(rayIntersection, this.positionWC);
+            }
+        }
+
+        if (!defined(globe) || (!defined(rayIntersection) && !defined(depthIntersection))) {
+            var distance = Math.max(this.positionCartographic.height, 0.0);
+            this.frustum.width = distance;
+        }
+    };
+
     var scratchSetViewCartesian = new Cartesian3();
     var scratchSetViewTransform1 = new Matrix4();
     var scratchSetViewTransform2 = new Matrix4();
@@ -853,14 +1043,15 @@ define([
     var scratchSetViewMatrix3 = new Matrix3();
     var scratchSetViewCartographic = new Cartographic();
 
-    function setView3D(camera, position, heading, pitch, roll) {
+    function setView3D(camera, position, hpr) {
         var currentTransform = Matrix4.clone(camera.transform, scratchSetViewTransform1);
         var localTransform = Transforms.eastNorthUpToFixedFrame(position, camera._projection.ellipsoid, scratchSetViewTransform2);
         camera._setTransform(localTransform);
 
         Cartesian3.clone(Cartesian3.ZERO, camera.position);
+        hpr.heading = hpr.heading - CesiumMath.PI_OVER_TWO;
 
-        var rotQuat = Quaternion.fromHeadingPitchRoll(heading - CesiumMath.PI_OVER_TWO, pitch, roll, scratchSetViewQuaternion);
+        var rotQuat = Quaternion.fromHeadingPitchRoll(hpr, scratchSetViewQuaternion);
         var rotMat = Matrix3.fromQuaternion(rotQuat, scratchSetViewMatrix3);
 
         Matrix3.getColumn(rotMat, 0, camera.direction);
@@ -868,9 +1059,11 @@ define([
         Cartesian3.cross(camera.direction, camera.up, camera.right);
 
         camera._setTransform(currentTransform);
+
+        camera._adjustOrthographicFrustum(true);
     }
 
-    function setViewCV(camera, position, heading, pitch, roll, convert) {
+    function setViewCV(camera, position,hpr, convert) {
         var currentTransform = Matrix4.clone(camera.transform, scratchSetViewTransform1);
         camera._setTransform(Matrix4.IDENTITY);
 
@@ -882,8 +1075,9 @@ define([
             }
             Cartesian3.clone(position, camera.position);
         }
+        hpr.heading = hpr.heading - CesiumMath.PI_OVER_TWO;
 
-        var rotQuat = Quaternion.fromHeadingPitchRoll(heading - CesiumMath.PI_OVER_TWO, pitch, roll, scratchSetViewQuaternion);
+        var rotQuat = Quaternion.fromHeadingPitchRoll(hpr, scratchSetViewQuaternion);
         var rotMat = Matrix3.fromQuaternion(rotQuat, scratchSetViewMatrix3);
 
         Matrix3.getColumn(rotMat, 0, camera.direction);
@@ -891,12 +1085,11 @@ define([
         Cartesian3.cross(camera.direction, camera.up, camera.right);
 
         camera._setTransform(currentTransform);
+
+        camera._adjustOrthographicFrustum(true);
     }
 
-    function setView2D(camera, position, heading, convert) {
-        var pitch = -CesiumMath.PI_OVER_TWO;
-        var roll = 0.0;
-
+    function setView2D(camera, position, hpr, convert) {
         var currentTransform = Matrix4.clone(camera.transform, scratchSetViewTransform1);
         camera._setTransform(Matrix4.IDENTITY);
 
@@ -922,11 +1115,16 @@ define([
             }
         }
 
-        var rotQuat = Quaternion.fromHeadingPitchRoll(heading - CesiumMath.PI_OVER_TWO, pitch, roll, scratchSetViewQuaternion);
-        var rotMat = Matrix3.fromQuaternion(rotQuat, scratchSetViewMatrix3);
+        if (camera._scene.mapMode2D === MapMode2D.ROTATE) {
+            hpr.heading = hpr.heading  - CesiumMath.PI_OVER_TWO;
+            hpr.pitch = -CesiumMath.PI_OVER_TWO;
+            hpr.roll =  0.0;
+            var rotQuat = Quaternion.fromHeadingPitchRoll(hpr, scratchSetViewQuaternion);
+            var rotMat = Matrix3.fromQuaternion(rotQuat, scratchSetViewMatrix3);
 
-        Matrix3.getColumn(rotMat, 2, camera.up);
-        Cartesian3.cross(camera.direction, camera.up, camera.right);
+            Matrix3.getColumn(rotMat, 2, camera.up);
+            Cartesian3.cross(camera.direction, camera.up, camera.right);
+        }
 
         camera._setTransform(currentTransform);
     }
@@ -966,17 +1164,19 @@ define([
             pitch : undefined,
             roll : undefined
         },
+        convert : undefined,
         endTransform : undefined
     };
 
+    var scratchHpr = new HeadingPitchRoll();
     /**
      * Sets the camera position, orientation and transform.
      *
      * @param {Object} options Object with the following properties:
      * @param {Cartesian3|Rectangle} [options.destination] The final position of the camera in WGS84 (world) coordinates or a rectangle that would be visible from a top-down view.
-     * @param {Object} [options.orientation] An object that contains either direction and up properties or heading, pith and roll properties. By default, the direction will point
-     * towards the center of the frame in 3D and in the negative z direction in Columbus view or 2D. The up direction will point towards local north in 3D and in the positive
-     * y direction in Columbus view or 2D.
+     * @param {Object} [options.orientation] An object that contains either direction and up properties or heading, pitch and roll properties. By default, the direction will point
+     * towards the center of the frame in 3D and in the negative z direction in Columbus view. The up direction will point towards local north in 3D and in the positive
+     * y direction in Columbus view. Orientation is not used in 2D when in infinite scrolling mode.
      * @param {Matrix4} [options.endTransform] Transform matrix representing the reference frame of the camera.
      *
      * @example
@@ -1010,7 +1210,7 @@ define([
      *     destination : Cesium.Rectangle.fromDegrees(west, south, east, north)
      * });
      *
-     * // 5. Setposition with an orientation using unit vectors.
+     * // 5. Set position with an orientation using unit vectors.
      * viewer.camera.setView({
      *     destination : Cesium.Cartesian3.fromDegrees(-122.19, 46.25, 5000.0),
      *     orientation : {
@@ -1032,7 +1232,7 @@ define([
             this._setTransform(options.endTransform);
         }
 
-        var convert = true;
+        var convert = defaultValue(options.convert, true);
         var destination = defaultValue(options.destination, Cartesian3.clone(this.positionWC, scratchSetViewCartesian));
         if (defined(destination) && defined(destination.west)) {
             destination = this.getRectangleCameraCoordinates(destination, scratchSetViewCartesian);
@@ -1043,16 +1243,70 @@ define([
             orientation = directionUpToHeadingPitchRoll(this, destination, orientation, scratchSetViewOptions.orientation);
         }
 
-        var heading = defaultValue(orientation.heading, 0.0);
-        var pitch = defaultValue(orientation.pitch, -CesiumMath.PI_OVER_TWO);
-        var roll = defaultValue(orientation.roll, 0.0);
+        scratchHpr.heading = defaultValue(orientation.heading, 0.0);
+        scratchHpr.pitch = defaultValue(orientation.pitch, -CesiumMath.PI_OVER_TWO);
+        scratchHpr.roll = defaultValue(orientation.roll, 0.0);
+
+        this._suspendTerrainAdjustment = true;
 
         if (mode === SceneMode.SCENE3D) {
-            setView3D(this, destination, heading, pitch, roll);
+            setView3D(this, destination, scratchHpr);
         } else if (mode === SceneMode.SCENE2D) {
-            setView2D(this, destination, heading, convert);
+            setView2D(this, destination, scratchHpr, convert);
         } else {
-            setViewCV(this, destination, heading, pitch, roll, convert);
+            setViewCV(this, destination, scratchHpr, convert);
+        }
+    };
+
+    var pitchScratch = new Cartesian3();
+    /**
+     * Fly the camera to the home view.  Use {@link Camera#.DEFAULT_VIEW_RECTANGLE} to set
+     * the default view for the 3D scene.  The home view for 2D and columbus view shows the
+     * entire map.
+     *
+     * @param {Number} [duration] The number of seconds to complete the camera flight to home. See {@link Camera#flyTo}
+     */
+    Camera.prototype.flyHome = function(duration) {
+        var mode = this._mode;
+
+        if (mode === SceneMode.MORPHING) {
+            this._scene.completeMorph();
+        }
+
+        if (mode === SceneMode.SCENE2D) {
+            this.flyTo({
+                destination : Camera.DEFAULT_VIEW_RECTANGLE,
+                duration : duration,
+                endTransform : Matrix4.IDENTITY
+            });
+        } else if (mode === SceneMode.SCENE3D) {
+            var destination = this.getRectangleCameraCoordinates(Camera.DEFAULT_VIEW_RECTANGLE);
+
+            var mag = Cartesian3.magnitude(destination);
+            mag += mag * Camera.DEFAULT_VIEW_FACTOR;
+            Cartesian3.normalize(destination, destination);
+            Cartesian3.multiplyByScalar(destination, mag, destination);
+
+            this.flyTo({
+                destination : destination,
+                duration : duration,
+                endTransform : Matrix4.IDENTITY
+            });
+        } else if (mode === SceneMode.COLUMBUS_VIEW) {
+            var maxRadii = this._projection.ellipsoid.maximumRadius;
+            var position = new Cartesian3(0.0, -1.0, 1.0);
+            position = Cartesian3.multiplyByScalar(Cartesian3.normalize(position, position), 5.0 * maxRadii, position);
+            this.flyTo({
+                destination : position,
+                duration : duration,
+                orientation : {
+                    heading : 0.0,
+                    pitch : -Math.acos(Cartesian3.normalize(position, pitchScratch).z),
+                    roll : 0.0
+                },
+                endTransform : Matrix4.IDENTITY,
+                convert : false
+            });
         }
     };
 
@@ -1070,7 +1324,7 @@ define([
         }
         //>>includeEnd('debug');
 
-        if (!defined(result)){
+        if (!defined(result)) {
             result = new Cartesian4();
         }
         updateMembers(this);
@@ -1091,7 +1345,7 @@ define([
         }
         //>>includeEnd('debug');
 
-        if (!defined(result)){
+        if (!defined(result)) {
             result = new Cartesian3();
         }
         updateMembers(this);
@@ -1112,7 +1366,7 @@ define([
         }
         //>>includeEnd('debug');
 
-        if (!defined(result)){
+        if (!defined(result)) {
             result = new Cartesian3();
         }
         updateMembers(this);
@@ -1133,7 +1387,7 @@ define([
         }
         //>>includeEnd('debug');
 
-        if (!defined(result)){
+        if (!defined(result)) {
             result = new Cartesian4();
         }
         updateMembers(this);
@@ -1154,7 +1408,7 @@ define([
         }
         //>>includeEnd('debug');
 
-        if (!defined(result)){
+        if (!defined(result)) {
             result = new Cartesian3();
         }
         updateMembers(this);
@@ -1175,7 +1429,7 @@ define([
         }
         //>>includeEnd('debug');
 
-        if (!defined(result)){
+        if (!defined(result)) {
             result = new Cartesian3();
         }
         updateMembers(this);
@@ -1183,20 +1437,32 @@ define([
     };
 
     function clampMove2D(camera, position) {
-        var maxX = camera._maxCoord.x * camera.maximumTranslateFactor;
-        if (position.x > maxX) {
-            position.x = maxX;
-        }
-        if (position.x < -maxX) {
-            position.x = -maxX;
+        var rotatable2D = camera._scene.mapMode2D === MapMode2D.ROTATE;
+        var maxProjectedX = camera._maxCoord.x;
+        var maxProjectedY = camera._maxCoord.y;
+
+        var minX;
+        var maxX;
+        if (rotatable2D) {
+            maxX = maxProjectedX;
+            minX = -maxX;
+        } else {
+            maxX = position.x - maxProjectedX * 2.0;
+            minX = position.x + maxProjectedX * 2.0;
         }
 
-        var maxY = camera._maxCoord.y * camera.maximumTranslateFactor;
-        if (position.y > maxY) {
-            position.y = maxY;
+        if (position.x > maxProjectedX) {
+            position.x = maxX;
         }
-        if (position.y < -maxY) {
-            position.y = -maxY;
+        if (position.x < -maxProjectedX) {
+            position.x = minX;
+        }
+
+        if (position.y > maxProjectedY) {
+            position.y = maxProjectedY;
+        }
+        if (position.y < -maxProjectedY) {
+            position.y = -maxProjectedY;
         }
     }
 
@@ -1228,6 +1494,7 @@ define([
         if (this._mode === SceneMode.SCENE2D) {
             clampMove2D(this, cameraPosition);
         }
+        this._adjustOrthographicFrustum(true);
     };
 
     /**
@@ -1427,7 +1694,7 @@ define([
      * @see Camera#rotateDown
      * @see Camera#rotateLeft
      * @see Camera#rotateRight
-    */
+     */
     Camera.prototype.rotate = function(axis, angle) {
         //>>includeStart('debug', pragmas.debug);
         if (!defined(axis)) {
@@ -1443,6 +1710,8 @@ define([
         Matrix3.multiplyByVector(rotation, this.up, this.up);
         Cartesian3.cross(this.direction, this.up, this.right);
         Cartesian3.cross(this.right, this.direction, this.up);
+
+        this._adjustOrthographicFrustum(false);
     };
 
     /**
@@ -1544,31 +1813,63 @@ define([
         var frustum = camera.frustum;
 
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(frustum.left) || !defined(frustum.right) || !defined(frustum.top) || !defined(frustum.bottom)) {
+        if (!(frustum instanceof OrthographicOffCenterFrustum) || !defined(frustum.left) || !defined(frustum.right) ||
+            !defined(frustum.bottom) || !defined(frustum.top)) {
             throw new DeveloperError('The camera frustum is expected to be orthographic for 2D camera control.');
         }
         //>>includeEnd('debug');
 
+        var ratio;
         amount = amount * 0.5;
-        var newRight = frustum.right - amount;
-        var newLeft = frustum.left + amount;
 
-        var maxRight = camera._maxCoord.x * camera.maximumZoomFactor;
-        if (newRight > maxRight) {
-            newRight = maxRight;
-            newLeft = -maxRight;
+        if((Math.abs(frustum.top) + Math.abs(frustum.bottom)) > (Math.abs(frustum.left) + Math.abs(frustum.right))) {
+            var newTop = frustum.top - amount;
+            var newBottom = frustum.bottom + amount;
+
+            var maxBottom = camera._maxCoord.y;
+            if (camera._scene.mapMode2D === MapMode2D.ROTATE) {
+                maxBottom *= camera.maximumZoomFactor;
+            }
+
+            if (newBottom > maxBottom) {
+                newBottom = maxBottom;
+                newTop = -maxBottom;
+            }
+
+            if (newTop <= newBottom) {
+                newTop = 1.0;
+                newBottom = -1.0;
+            }
+
+            ratio = frustum.right / frustum.top;
+            frustum.top = newTop;
+            frustum.bottom = newBottom;
+            frustum.right = frustum.top * ratio;
+            frustum.left = -frustum.right;
+        } else {
+            var newRight = frustum.right - amount;
+            var newLeft = frustum.left + amount;
+
+            var maxRight = camera._maxCoord.x;
+            if (camera._scene.mapMode2D === MapMode2D.ROTATE) {
+                maxRight *= camera.maximumZoomFactor;
+            }
+
+            if (newRight > maxRight) {
+                newRight = maxRight;
+                newLeft = -maxRight;
+            }
+
+            if (newRight <= newLeft) {
+                newRight = 1.0;
+                newLeft = -1.0;
+            }
+            ratio = frustum.top / frustum.right;
+            frustum.right = newRight;
+            frustum.left = newLeft;
+            frustum.top = frustum.right * ratio;
+            frustum.bottom = -frustum.top;
         }
-
-        if (newRight <= newLeft) {
-            newRight = 1.0;
-            newLeft = -1.0;
-        }
-
-        var ratio = frustum.top / frustum.right;
-        frustum.right = newRight;
-        frustum.left = newLeft;
-        frustum.top = frustum.right * ratio;
-        frustum.bottom = -frustum.top;
     }
 
     function zoom3D(camera, amount) {
@@ -1620,7 +1921,7 @@ define([
         } else if (this._mode === SceneMode.COLUMBUS_VIEW) {
             return Math.abs(this.position.z);
         } else if (this._mode === SceneMode.SCENE2D) {
-            return  Math.max(this.frustum.right - this.frustum.left, this.frustum.top - this.frustum.bottom);
+            return Math.max(this.frustum.right - this.frustum.left, this.frustum.top - this.frustum.bottom);
         }
     };
 
@@ -1785,6 +2086,8 @@ define([
         Cartesian3.normalize(this.right, this.right);
         Cartesian3.cross(this.right, this.direction, this.up);
         Cartesian3.normalize(this.up, this.up);
+
+        this._adjustOrthographicFrustum(true);
     };
 
     var viewRectangle3DCartographic1 = new Cartographic();
@@ -1797,7 +2100,11 @@ define([
     var viewRectangle3DSouthCenter = new Cartesian3();
     var viewRectangle3DCenter = new Cartesian3();
     var viewRectangle3DEquator = new Cartesian3();
-    var defaultRF = {direction: new Cartesian3(), right: new Cartesian3(), up: new Cartesian3()};
+    var defaultRF = {
+        direction : new Cartesian3(),
+        right : new Cartesian3(),
+        up : new Cartesian3()
+    };
     var viewRectangle3DEllipsoidGeodesic;
 
     function computeD(direction, upOrRight, corner, tanThetaOrPhi) {
@@ -1805,7 +2112,7 @@ define([
         return opposite / tanThetaOrPhi - Cartesian3.dot(direction, corner);
     }
 
-    function rectangleCameraPosition3D (camera, rectangle, result, updateCamera) {
+    function rectangleCameraPosition3D(camera, rectangle, result, updateCamera) {
         var ellipsoid = camera._projection.ellipsoid;
         var cameraRF = updateCamera ? camera : defaultRF;
 
@@ -1888,38 +2195,58 @@ define([
         Cartesian3.normalize(right, right);
         var up = Cartesian3.cross(right, direction, cameraRF.up);
 
-        var tanPhi = Math.tan(camera.frustum.fovy * 0.5);
-        var tanTheta = camera.frustum.aspectRatio * tanPhi;
+        var d;
+        if (camera.frustum instanceof OrthographicFrustum) {
+            var width = Math.max(Cartesian3.distance(northEast, northWest), Cartesian3.distance(southEast, southWest));
+            var height = Math.max(Cartesian3.distance(northEast, southEast), Cartesian3.distance(northWest, southWest));
 
-        var d = Math.max(
-            computeD(direction, up, northWest, tanPhi),
-            computeD(direction, up, southEast, tanPhi),
-            computeD(direction, up, northEast, tanPhi),
-            computeD(direction, up, southWest, tanPhi),
-            computeD(direction, up, northCenter, tanPhi),
-            computeD(direction, up, southCenter, tanPhi),
-            computeD(direction, right, northWest, tanTheta),
-            computeD(direction, right, southEast, tanTheta),
-            computeD(direction, right, northEast, tanTheta),
-            computeD(direction, right, southWest, tanTheta),
-            computeD(direction, right, northCenter, tanTheta),
-            computeD(direction, right, southCenter, tanTheta));
+            var rightScalar;
+            var topScalar;
+            var ratio = camera.frustum._offCenterFrustum.right / camera.frustum._offCenterFrustum.top;
+            var heightRatio = height * ratio;
+            if (width > heightRatio) {
+                rightScalar = width;
+                topScalar = rightScalar / ratio;
+            } else {
+                topScalar = height;
+                rightScalar = heightRatio;
+            }
 
-        // If the rectangle crosses the equator, compute D at the equator, too, because that's the
-        // widest part of the rectangle when projected onto the globe.
-        if (south < 0 && north > 0) {
-            var equatorCartographic = viewRectangle3DCartographic1;
-            equatorCartographic.longitude = west;
-            equatorCartographic.latitude = 0.0;
-            equatorCartographic.height = 0.0;
-            var equatorPosition = ellipsoid.cartographicToCartesian(equatorCartographic, viewRectangle3DEquator);
-            Cartesian3.subtract(equatorPosition, center, equatorPosition);
-            d = Math.max(d, computeD(direction, up, equatorPosition, tanPhi), computeD(direction, right, equatorPosition, tanTheta));
+            d = Math.max(rightScalar, topScalar);
+        } else {
+            var tanPhi = Math.tan(camera.frustum.fovy * 0.5);
+            var tanTheta = camera.frustum.aspectRatio * tanPhi;
 
-            equatorCartographic.longitude = east;
-            equatorPosition = ellipsoid.cartographicToCartesian(equatorCartographic, viewRectangle3DEquator);
-            Cartesian3.subtract(equatorPosition, center, equatorPosition);
-            d = Math.max(d, computeD(direction, up, equatorPosition, tanPhi), computeD(direction, right, equatorPosition, tanTheta));
+            d = Math.max(
+                computeD(direction, up, northWest, tanPhi),
+                computeD(direction, up, southEast, tanPhi),
+                computeD(direction, up, northEast, tanPhi),
+                computeD(direction, up, southWest, tanPhi),
+                computeD(direction, up, northCenter, tanPhi),
+                computeD(direction, up, southCenter, tanPhi),
+                computeD(direction, right, northWest, tanTheta),
+                computeD(direction, right, southEast, tanTheta),
+                computeD(direction, right, northEast, tanTheta),
+                computeD(direction, right, southWest, tanTheta),
+                computeD(direction, right, northCenter, tanTheta),
+                computeD(direction, right, southCenter, tanTheta));
+
+            // If the rectangle crosses the equator, compute D at the equator, too, because that's the
+            // widest part of the rectangle when projected onto the globe.
+            if (south < 0 && north > 0) {
+                var equatorCartographic = viewRectangle3DCartographic1;
+                equatorCartographic.longitude = west;
+                equatorCartographic.latitude = 0.0;
+                equatorCartographic.height = 0.0;
+                var equatorPosition = ellipsoid.cartographicToCartesian(equatorCartographic, viewRectangle3DEquator);
+                Cartesian3.subtract(equatorPosition, center, equatorPosition);
+                d = Math.max(d, computeD(direction, up, equatorPosition, tanPhi), computeD(direction, right, equatorPosition, tanTheta));
+
+                equatorCartographic.longitude = east;
+                equatorPosition = ellipsoid.cartographicToCartesian(equatorCartographic, viewRectangle3DEquator);
+                Cartesian3.subtract(equatorPosition, center, equatorPosition);
+                d = Math.max(d, computeD(direction, up, equatorPosition, tanPhi), computeD(direction, right, equatorPosition, tanTheta));
+            }
         }
 
         return Cartesian3.add(center, Cartesian3.multiplyByScalar(direction, -d, viewRectangle3DEquator), result);
@@ -1949,12 +2276,18 @@ define([
         Matrix4.multiplyByPoint(transform, southWest, southWest);
         Matrix4.multiplyByPoint(invTransform, southWest, southWest);
 
-        var tanPhi = Math.tan(camera.frustum.fovy * 0.5);
-        var tanTheta = camera.frustum.aspectRatio * tanPhi;
-
         result.x = (northEast.x - southWest.x) * 0.5 + southWest.x;
         result.y = (northEast.y - southWest.y) * 0.5 + southWest.y;
-        result.z = Math.max((northEast.x - southWest.x) / tanTheta, (northEast.y - southWest.y) / tanPhi) * 0.5;
+
+        if (defined(camera.frustum.fovy)) {
+            var tanPhi = Math.tan(camera.frustum.fovy * 0.5);
+            var tanTheta = camera.frustum.aspectRatio * tanPhi;
+            result.z = Math.max((northEast.x - southWest.x) / tanTheta, (northEast.y - southWest.y) / tanPhi) * 0.5;
+        } else {
+            var width = northEast.x - southWest.x;
+            var height = northEast.y - southWest.y;
+            result.z = Math.max(width, height);
+        }
 
         return result;
     }
@@ -1962,7 +2295,7 @@ define([
     var viewRectangle2DCartographic = new Cartographic();
     var viewRectangle2DNorthEast = new Cartesian3();
     var viewRectangle2DSouthWest = new Cartesian3();
-    function rectangleCameraPosition2D (camera, rectangle, result) {
+    function rectangleCameraPosition2D(camera, rectangle, result) {
         var projection = camera._projection;
         if (rectangle.west > rectangle.east) {
             rectangle = Rectangle.MAX_VALUE;
@@ -2003,7 +2336,7 @@ define([
     }
 
     /**
-     * Get the camera position needed to view an rectangle on an ellipsoid or map
+     * Get the camera position needed to view a rectangle on an ellipsoid or map
      *
      * @param {Rectangle} rectangle The rectangle to view.
      * @param {Cartesian3} [result] The camera position needed to view the rectangle
@@ -2052,8 +2385,7 @@ define([
         position.z = 0.0;
         var cart = projection.unproject(position);
 
-        if (cart.latitude < -CesiumMath.PI_OVER_TWO || cart.latitude > CesiumMath.PI_OVER_TWO ||
-                cart.longitude < - Math.PI || cart.longitude > Math.PI) {
+        if (cart.latitude < -CesiumMath.PI_OVER_TWO || cart.latitude > CesiumMath.PI_OVER_TWO) {
             return undefined;
         }
 
@@ -2069,7 +2401,7 @@ define([
         var cart = projection.unproject(new Cartesian3(result.y, result.z, 0.0));
 
         if (cart.latitude < -CesiumMath.PI_OVER_TWO || cart.latitude > CesiumMath.PI_OVER_TWO ||
-                cart.longitude < - Math.PI || cart.longitude > Math.PI) {
+            cart.longitude < -Math.PI || cart.longitude > Math.PI) {
             return undefined;
         }
 
@@ -2091,6 +2423,11 @@ define([
             throw new DeveloperError('windowPosition is required.');
         }
         //>>includeEnd('debug');
+
+        var canvas = this._scene.canvas;
+        if (canvas.clientWidth === 0 || canvas.clientHeight === 0) {
+            return undefined;
+        }
 
         if (!defined(result)) {
             result = new Cartesian3();
@@ -2148,10 +2485,14 @@ define([
         var width = canvas.clientWidth;
         var height = canvas.clientHeight;
 
+        var frustum = camera.frustum;
+        if (defined(frustum._offCenterFrustum)) {
+            frustum = frustum._offCenterFrustum;
+        }
         var x = (2.0 / width) * windowPosition.x - 1.0;
-        x *= (camera.frustum.right - camera.frustum.left) * 0.5;
+        x *= (frustum.right - frustum.left) * 0.5;
         var y = (2.0 / height) * (height - windowPosition.y) - 1.0;
-        y *= (camera.frustum.top - camera.frustum.bottom) * 0.5;
+        y *= (frustum.top - frustum.bottom) * 0.5;
 
         var origin = result.origin;
         Cartesian3.clone(camera.position, origin);
@@ -2162,6 +2503,10 @@ define([
         Cartesian3.add(scratchDirection, origin, origin);
 
         Cartesian3.clone(camera.directionWC, result.direction);
+
+        if (camera._mode === SceneMode.COLUMBUS_VIEW) {
+            Cartesian3.fromElements(result.origin.z, result.origin.x, result.origin.y, result.origin);
+        }
 
         return result;
     }
@@ -2241,63 +2586,6 @@ define([
         var pixelSize = this.frustum.getPixelDimensions(drawingBufferWidth, drawingBufferHeight, distance, scratchPixelSize);
         return Math.max(pixelSize.x, pixelSize.y);
     };
-
-    function createAnimation2D(camera, duration) {
-        var position = camera.position;
-        var translateX = position.x < -camera._maxCoord.x || position.x > camera._maxCoord.x;
-        var translateY = position.y < -camera._maxCoord.y || position.y > camera._maxCoord.y;
-        var animatePosition = translateX || translateY;
-
-        var frustum = camera.frustum;
-        var top = frustum.top;
-        var bottom = frustum.bottom;
-        var right = frustum.right;
-        var left = frustum.left;
-        var startFrustum = camera._max2Dfrustum;
-        var animateFrustum = right > camera._max2Dfrustum.right;
-
-        if (animatePosition || animateFrustum) {
-            var translatedPosition = Cartesian3.clone(position);
-
-            if (translatedPosition.x > camera._maxCoord.x) {
-                translatedPosition.x = camera._maxCoord.x;
-            } else if (translatedPosition.x < -camera._maxCoord.x) {
-                translatedPosition.x = -camera._maxCoord.x;
-            }
-
-            if (translatedPosition.y > camera._maxCoord.y) {
-                translatedPosition.y = camera._maxCoord.y;
-            } else if (translatedPosition.y < -camera._maxCoord.y) {
-                translatedPosition.y = -camera._maxCoord.y;
-            }
-
-            var update2D = function(value) {
-                if (animatePosition) {
-                    camera.position = Cartesian3.lerp(position, translatedPosition, value.time, camera.position);
-                }
-                if (animateFrustum) {
-                    camera.frustum.top = CesiumMath.lerp(top, startFrustum.top, value.time);
-                    camera.frustum.bottom = CesiumMath.lerp(bottom, startFrustum.bottom, value.time);
-                    camera.frustum.right = CesiumMath.lerp(right, startFrustum.right, value.time);
-                    camera.frustum.left = CesiumMath.lerp(left, startFrustum.left, value.time);
-                }
-            };
-
-            return {
-                easingFunction : EasingFunction.EXPONENTIAL_OUT,
-                startObject : {
-                    time : 0.0
-                },
-                stopObject : {
-                    time : 1.0
-                },
-                duration : duration,
-                update : update2D
-            };
-        }
-
-        return undefined;
-    }
 
     function createAnimationTemplateCV(camera, position, center, maxX, maxY, duration) {
         var newPosition = Cartesian3.clone(position);
@@ -2385,15 +2673,12 @@ define([
         }
         //>>includeEnd('debug');
 
-        if (this._mode === SceneMode.SCENE2D) {
-            return createAnimation2D(this, duration);
-        } else if (this._mode === SceneMode.COLUMBUS_VIEW) {
+        if (this._mode === SceneMode.COLUMBUS_VIEW) {
             return createAnimationCV(this, duration);
         }
 
         return undefined;
     };
-
 
     var scratchFlyToDestination = new Cartesian3();
     var newOptions = {
@@ -2410,20 +2695,32 @@ define([
     };
 
     /**
+     * Cancels the current camera flight if one is in progress.
+     * The camera is left at it's current location.
+     */
+    Camera.prototype.cancelFlight = function () {
+        if (defined(this._currentFlight)) {
+            this._currentFlight.cancelTween();
+            this._currentFlight = undefined;
+        }
+    };
+
+    /**
      * Flies the camera from its current position to a new position.
      *
      * @param {Object} options Object with the following properties:
      * @param {Cartesian3|Rectangle} options.destination The final position of the camera in WGS84 (world) coordinates or a rectangle that would be visible from a top-down view.
      * @param {Object} [options.orientation] An object that contains either direction and up properties or heading, pith and roll properties. By default, the direction will point
-     * towards the center of the frame in 3D and in the negative z direction in Columbus view or 2D. The up direction will point towards local north in 3D and in the positive
-     * y direction in Columbus view or 2D.
+     * towards the center of the frame in 3D and in the negative z direction in Columbus view. The up direction will point towards local north in 3D and in the positive
+     * y direction in Columbus view.  Orientation is not used in 2D when in infinite scrolling mode.
      * @param {Number} [options.duration] The duration of the flight in seconds. If omitted, Cesium attempts to calculate an ideal duration based on the distance to be traveled by the flight.
      * @param {Camera~FlightCompleteCallback} [options.complete] The function to execute when the flight is complete.
      * @param {Camera~FlightCancelledCallback} [options.cancel] The function to execute if the flight is cancelled.
      * @param {Matrix4} [options.endTransform] Transform matrix representing the reference frame the camera will be in when the flight is completed.
-     * @param {Boolean} [options.convert=true] When <code>true</code>, the destination is converted to the correct coordinate system for each scene mode. When <code>false</code>, the destination is expected
-     *                  to be in the correct coordinate system.
      * @param {Number} [options.maximumHeight] The maximum height at the peak of the flight.
+     * @param {Number} [options.pitchAdjustHeight] If camera flyes higher than that value, adjust pitch duiring the flight to look down, and keep Earth in viewport.
+     * @param {Number} [options.flyOverLongitude] There are always two ways between 2 points on globe. This option force camera to choose fight direction to fly over that longitude.
+     * @param {Number} [options.flyOverLongitudeWeight] Fly over the lon specifyed via flyOverLongitude only if that way is not longer than short way times flyOverLongitudeWeight.
      * @param {EasingFunction|EasingFunction~Callback} [options.easingFunction] Controls how the time is interpolated over the duration of the flight.
      *
      * @exception {DeveloperError} If either direction or up is given, then both are required.
@@ -2472,6 +2769,8 @@ define([
             return;
         }
 
+        this.cancelFlight();
+
         var orientation = defaultValue(options.orientation, defaultValue.EMPTY_OBJECT);
         if (defined(orientation.direction)) {
             orientation = directionUpToHeadingPitchRoll(this, destination, orientation, scratchSetViewOptions.orientation);
@@ -2483,9 +2782,10 @@ define([
             setViewOptions.orientation.heading = orientation.heading;
             setViewOptions.orientation.pitch = orientation.pitch;
             setViewOptions.orientation.roll = orientation.roll;
+            setViewOptions.convert = options.convert;
             setViewOptions.endTransform = options.endTransform;
             this.setView(setViewOptions);
-            if (typeof options.complete === 'function'){
+            if (typeof options.complete === 'function') {
                 options.complete();
             }
             return;
@@ -2496,20 +2796,34 @@ define([
             destination = this.getRectangleCameraCoordinates(destination, scratchFlyToDestination);
         }
 
+        var that = this;
+        var flightTween;
+
         newOptions.destination = destination;
         newOptions.heading = orientation.heading;
         newOptions.pitch = orientation.pitch;
         newOptions.roll = orientation.roll;
         newOptions.duration = options.duration;
-        newOptions.complete = options.complete;
+        newOptions.complete = function () {
+            if(flightTween === that._currentFlight){
+                that._currentFlight = undefined;
+            }
+            if (defined(options.complete)) {
+                options.complete();
+            }
+        };
         newOptions.cancel = options.cancel;
         newOptions.endTransform = options.endTransform;
         newOptions.convert = isRectangle ? false : options.convert;
         newOptions.maximumHeight = options.maximumHeight;
+        newOptions.pitchAdjustHeight = options.pitchAdjustHeight;
+        newOptions.flyOverLongitude = options.flyOverLongitude;
+        newOptions.flyOverLongitudeWeight = options.flyOverLongitudeWeight;
         newOptions.easingFunction = options.easingFunction;
 
         var scene = this._scene;
-        scene.tweens.add(CameraFlightPath.createTween(scene, newOptions));
+        flightTween = scene.tweens.add(CameraFlightPath.createTween(scene, newOptions));
+        this._currentFlight = flightTween;
     };
 
     function distanceToBoundingSphere3D(camera, radius) {
@@ -2521,6 +2835,9 @@ define([
 
     function distanceToBoundingSphere2D(camera, radius) {
         var frustum = camera.frustum;
+        if (defined(frustum._offCenterFrustum)) {
+            frustum = frustum._offCenterFrustum;
+        }
 
         var right, top;
         var ratio = frustum.right / frustum.top;
@@ -2536,22 +2853,26 @@ define([
         return Math.max(right, top) * 1.50;
     }
 
-    var scratchDefaultOffset = new HeadingPitchRange(0.0, -CesiumMath.PI_OVER_FOUR, 0.0);
     var MINIMUM_ZOOM = 100.0;
 
     function adjustBoundingSphereOffset(camera, boundingSphere, offset) {
         if (!defined(offset)) {
-            offset = HeadingPitchRange.clone(scratchDefaultOffset);
+            offset = HeadingPitchRange.clone(Camera.DEFAULT_OFFSET);
         }
 
+        var minimumZoom = camera._scene.screenSpaceCameraController.minimumZoomDistance;
+        var maximumZoom = camera._scene.screenSpaceCameraController.maximumZoomDistance;
         var range = offset.range;
         if (!defined(range) || range === 0.0) {
             var radius = boundingSphere.radius;
             if (radius === 0.0) {
                 offset.range = MINIMUM_ZOOM;
+            } else if (camera.frustum instanceof OrthographicFrustum || camera._mode === SceneMode.SCENE2D) {
+                offset.range = distanceToBoundingSphere2D(camera, radius);
             } else {
-                offset.range = camera._mode === SceneMode.SCENE2D ? distanceToBoundingSphere2D(camera, radius) : distanceToBoundingSphere3D(camera, radius);
+                offset.range = distanceToBoundingSphere3D(camera, radius);
             }
+            offset.range = CesiumMath.clamp(offset.range, minimumZoom, maximumZoom);
         }
 
         return offset;
@@ -2580,11 +2901,11 @@ define([
         if (!defined(boundingSphere)) {
             throw new DeveloperError('boundingSphere is required.');
         }
-        //>>includeEnd('debug');
 
         if (this._mode === SceneMode.MORPHING) {
             throw new DeveloperError('viewBoundingSphere is not supported while morphing.');
         }
+        //>>includeEnd('debug');
 
         offset = adjustBoundingSphereOffset(this, boundingSphere, offset);
         this.lookAt(boundingSphere.center, offset);
@@ -2619,6 +2940,9 @@ define([
      * @param {Camera~FlightCancelledCallback} [options.cancel] The function to execute if the flight is cancelled.
      * @param {Matrix4} [options.endTransform] Transform matrix representing the reference frame the camera will be in when the flight is completed.
      * @param {Number} [options.maximumHeight] The maximum height at the peak of the flight.
+     * @param {Number} [options.pitchAdjustHeight] If camera flyes higher than that value, adjust pitch duiring the flight to look down, and keep Earth in viewport.
+     * @param {Number} [options.flyOverLongitude] There are always two ways between 2 points on globe. This option force camera to choose fight direction to fly over that longitude.
+     * @param {Number} [options.flyOverLongitudeWeight] Fly over the lon specifyed via flyOverLongitude only if that way is not longer than short way times flyOverLongitudeWeight.
      * @param {EasingFunction|EasingFunction~Callback} [options.easingFunction] Controls how the time is interpolated over the duration of the flight.
      */
     Camera.prototype.flyToBoundingSphere = function(boundingSphere, options) {
@@ -2629,7 +2953,6 @@ define([
         //>>includeEnd('debug');
 
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);
-
         var scene2D = this._mode === SceneMode.SCENE2D || this._mode === SceneMode.COLUMBUS_VIEW;
         this._setTransform(Matrix4.IDENTITY);
         var offset = adjustBoundingSphereOffset(this, boundingSphere, options.offset);
@@ -2676,8 +2999,188 @@ define([
             cancel : options.cancel,
             endTransform : options.endTransform,
             maximumHeight : options.maximumHeight,
-            easingFunction : options.easingFunction
+            easingFunction : options.easingFunction,
+            flyOverLongitude : options.flyOverLongitude,
+            flyOverLongitudeWeight : options.flyOverLongitudeWeight,
+            pitchAdjustHeight : options.pitchAdjustHeight
         });
+    };
+
+    var scratchCartesian3_1 = new Cartesian3();
+    var scratchCartesian3_2 = new Cartesian3();
+    var scratchCartesian3_3 = new Cartesian3();
+    var scratchCartesian3_4 = new Cartesian3();
+    var horizonPoints = [new Cartesian3(), new Cartesian3(), new Cartesian3(), new Cartesian3()];
+
+    function computeHorizonQuad(camera, ellipsoid) {
+        var radii = ellipsoid.radii;
+        var p = camera.positionWC;
+
+        // Find the corresponding position in the scaled space of the ellipsoid.
+        var q = Cartesian3.multiplyComponents(ellipsoid.oneOverRadii, p, scratchCartesian3_1);
+
+        var qMagnitude = Cartesian3.magnitude(q);
+        var qUnit = Cartesian3.normalize(q, scratchCartesian3_2);
+
+        // Determine the east and north directions at q.
+        var eUnit;
+        var nUnit;
+        if (Cartesian3.equalsEpsilon(qUnit, Cartesian3.UNIT_Z, CesiumMath.EPSILON10)) {
+            eUnit = new Cartesian3(0, 1, 0);
+            nUnit = new Cartesian3(0, 0, 1);
+        } else {
+            eUnit = Cartesian3.normalize(Cartesian3.cross(Cartesian3.UNIT_Z, qUnit, scratchCartesian3_3), scratchCartesian3_3);
+            nUnit = Cartesian3.normalize(Cartesian3.cross(qUnit, eUnit, scratchCartesian3_4), scratchCartesian3_4);
+        }
+
+        // Determine the radius of the 'limb' of the ellipsoid.
+        var wMagnitude = Math.sqrt(Cartesian3.magnitudeSquared(q) - 1.0);
+
+        // Compute the center and offsets.
+        var center = Cartesian3.multiplyByScalar(qUnit, 1.0 / qMagnitude, scratchCartesian3_1);
+        var scalar = wMagnitude / qMagnitude;
+        var eastOffset = Cartesian3.multiplyByScalar(eUnit, scalar, scratchCartesian3_2);
+        var northOffset = Cartesian3.multiplyByScalar(nUnit, scalar, scratchCartesian3_3);
+
+        // A conservative measure for the longitudes would be to use the min/max longitudes of the bounding frustum.
+        var upperLeft = Cartesian3.add(center, northOffset, horizonPoints[0]);
+        Cartesian3.subtract(upperLeft, eastOffset, upperLeft);
+        Cartesian3.multiplyComponents(radii, upperLeft, upperLeft);
+
+        var lowerLeft = Cartesian3.subtract(center, northOffset, horizonPoints[1]);
+        Cartesian3.subtract(lowerLeft, eastOffset, lowerLeft);
+        Cartesian3.multiplyComponents(radii, lowerLeft, lowerLeft);
+
+        var lowerRight = Cartesian3.subtract(center, northOffset, horizonPoints[2]);
+        Cartesian3.add(lowerRight, eastOffset, lowerRight);
+        Cartesian3.multiplyComponents(radii, lowerRight, lowerRight);
+
+        var upperRight = Cartesian3.add(center, northOffset, horizonPoints[3]);
+        Cartesian3.add(upperRight, eastOffset, upperRight);
+        Cartesian3.multiplyComponents(radii, upperRight, upperRight);
+
+        return horizonPoints;
+    }
+
+    var scratchPickCartesian2 = new Cartesian2();
+    var scratchRectCartesian = new Cartesian3();
+    var cartoArray = [new Cartographic(), new Cartographic(), new Cartographic(), new Cartographic()];
+    function addToResult(x, y, index, camera, ellipsoid, computedHorizonQuad) {
+        scratchPickCartesian2.x = x;
+        scratchPickCartesian2.y = y;
+        var r = camera.pickEllipsoid(scratchPickCartesian2, ellipsoid, scratchRectCartesian);
+        if (defined(r)) {
+            cartoArray[index] = ellipsoid.cartesianToCartographic(r, cartoArray[index]);
+            return 1;
+        }
+        cartoArray[index] = ellipsoid.cartesianToCartographic(computedHorizonQuad[index], cartoArray[index]);
+        return 0;
+    }
+    /**
+     * Computes the approximate visible rectangle on the ellipsoid.
+     *
+     * @param {Ellipsoid} [ellipsoid=Ellipsoid.WGS84] The ellipsoid that you want to know the visible region.
+     * @param {Rectangle} [result] The rectangle in which to store the result
+     *
+     * @returns {Rectangle|undefined} The visible rectangle or undefined if the ellipsoid isn't visible at all.
+     */
+    Camera.prototype.computeViewRectangle = function(ellipsoid, result) {
+        ellipsoid = defaultValue(ellipsoid, Ellipsoid.WGS84);
+        var cullingVolume = this.frustum.computeCullingVolume(this.positionWC, this.directionWC, this.upWC);
+        var boundingSphere = new BoundingSphere(Cartesian3.ZERO, ellipsoid.maximumRadius);
+        var visibility = cullingVolume.computeVisibility(boundingSphere);
+        if (visibility === Intersect.OUTSIDE) {
+            return undefined;
+        }
+
+        var canvas = this._scene.canvas;
+        var width = canvas.clientWidth;
+        var height = canvas.clientHeight;
+
+        var successfulPickCount = 0;
+
+        var computedHorizonQuad = computeHorizonQuad(this, ellipsoid);
+
+        successfulPickCount += addToResult(0, 0, 0, this, ellipsoid, computedHorizonQuad);
+        successfulPickCount += addToResult(0, height, 1, this, ellipsoid, computedHorizonQuad);
+        successfulPickCount += addToResult(width, height, 2, this, ellipsoid, computedHorizonQuad);
+        successfulPickCount += addToResult(width, 0, 3, this, ellipsoid, computedHorizonQuad);
+
+        if (successfulPickCount < 2) {
+            // If we have space non-globe in 3 or 4 corners then return the whole globe
+            return Rectangle.MAX_VALUE;
+        }
+
+        result = Rectangle.fromCartographicArray(cartoArray, result);
+
+        // Detect if we go over the poles
+        var distance = 0;
+        var lastLon = cartoArray[3].longitude;
+        for (var i = 0; i < 4; ++i) {
+            var lon = cartoArray[i].longitude;
+            var diff = Math.abs(lon - lastLon);
+            if (diff > CesiumMath.PI) {
+                // Crossed the dateline
+                distance += CesiumMath.TWO_PI - diff;
+            } else {
+                distance += diff;
+            }
+
+            lastLon = lon;
+        }
+
+        // We are over one of the poles so adjust the rectangle accordingly
+        if (CesiumMath.equalsEpsilon(Math.abs(distance), CesiumMath.TWO_PI, CesiumMath.EPSILON9)) {
+            result.west = -CesiumMath.PI;
+            result.east = CesiumMath.PI;
+            if (cartoArray[0].latitude >= 0.0) {
+                result.north = CesiumMath.PI_OVER_TWO;
+            } else {
+                result.south = -CesiumMath.PI_OVER_TWO;
+            }
+        }
+
+        return result;
+    };
+
+    /**
+     * Switches the frustum/projection to perspective.
+     *
+     * This function is a no-op in 2D which must always be orthographic.
+     */
+    Camera.prototype.switchToPerspectiveFrustum = function() {
+        if (this._mode === SceneMode.SCENE2D || this.frustum instanceof PerspectiveFrustum) {
+            return;
+        }
+
+        var scene = this._scene;
+        this.frustum = new PerspectiveFrustum();
+        this.frustum.aspectRatio = scene.drawingBufferWidth / scene.drawingBufferHeight;
+        this.frustum.fov = CesiumMath.toRadians(60.0);
+    };
+
+    /**
+     * Switches the frustum/projection to orthographic.
+     *
+     * This function is a no-op in 2D which will always be orthographic.
+     */
+    Camera.prototype.switchToOrthographicFrustum = function() {
+        if (this._mode === SceneMode.SCENE2D || this.frustum instanceof OrthographicFrustum) {
+            return;
+        }
+
+        var scene = this._scene;
+        this.frustum = new OrthographicFrustum();
+        this.frustum.aspectRatio = scene.drawingBufferWidth / scene.drawingBufferHeight;
+
+        // It doesn't matter what we set this to. The adjust below will correct the width based on the camera position.
+        this.frustum.width = Cartesian3.magnitude(this.position);
+
+        // Check the projection matrix. It will always be defined, but we need to force an off-center update.
+        var projectionMatrix = this.frustum.projectionMatrix;
+        if (defined(projectionMatrix)) {
+            this._adjustOrthographicFrustum(true);
+        }
     };
 
     /**
@@ -2693,6 +3196,7 @@ define([
         Cartesian3.clone(camera.up, result.up);
         Cartesian3.clone(camera.right, result.right);
         Matrix4.clone(camera._transform, result.transform);
+        result._transformChanged = true;
 
         return result;
     };

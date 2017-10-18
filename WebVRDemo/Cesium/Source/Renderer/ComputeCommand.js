@@ -1,13 +1,10 @@
-/*global define*/
 define([
         '../Core/defaultValue',
-        '../Core/PrimitiveType',
-        '../Scene/Pass'
+        './Pass'
     ], function(
         defaultValue,
-        PrimitiveType,
         Pass) {
-    "use strict";
+    'use strict';
 
     /**
      * Represents a command to the renderer for GPU Compute (using old-school GPGPU).
@@ -110,7 +107,7 @@ define([
     /**
      * Executes the compute command.
      *
-     * @param {Context} context The context that processes the compute command.
+     * @param {Context} computeEngine The context that processes the compute command.
      */
     ComputeCommand.prototype.execute = function(computeEngine) {
         computeEngine.execute(this);

@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/Cartesian3',
         '../Core/defined',
@@ -15,7 +14,7 @@ define([
         Matrix3,
         ReferenceFrame,
         Transforms) {
-    "use strict";
+    'use strict';
 
     /**
      * The interface for all {@link Property} objects that define a world

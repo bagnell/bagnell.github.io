@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * The maximum latitude, in radians, both North and South, supported by a Web Mercator\n\
  * (EPSG:3857) projection.  Technically, the Mercator projection is defined\n\
@@ -17,5 +16,6 @@ define(function() {
  * @name czm_webMercatorMaxLatitude\n\
  * @glslConstant\n\
  */\n\
-const float czm_webMercatorMaxLatitude = 1.4844222297453324;";
+const float czm_webMercatorMaxLatitude = 1.4844222297453324;\n\
+";
 });

@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * Transforms a position from eye to window coordinates.  The transformation\n\
  * from eye to clip coordinates is done using {@link czm_projection}.\n\

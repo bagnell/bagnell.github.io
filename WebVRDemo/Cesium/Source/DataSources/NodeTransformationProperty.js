@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defaultValue',
         '../Core/defined',
@@ -15,7 +14,7 @@ define([
         TranslationRotationScale,
         createPropertyDescriptor,
         Property) {
-    "use strict";
+    'use strict';
 
     var defaultNodeTransformation = new TranslationRotationScale();
 

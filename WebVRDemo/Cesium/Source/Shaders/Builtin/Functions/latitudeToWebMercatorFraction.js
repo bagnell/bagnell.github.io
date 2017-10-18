@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * Computes the fraction of a Web Wercator rectangle at which a given geodetic latitude is located.\n\
  *\n\

@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/Cartesian2',
         '../Core/Cartesian3',
@@ -9,7 +8,6 @@ define([
         '../Core/defineProperties',
         '../Core/DeveloperError',
         '../Core/Event',
-        '../Core/GeographicProjection',
         '../Core/GeographicTilingScheme',
         '../Core/loadJson',
         '../Core/loadJsonp',
@@ -33,7 +31,6 @@ define([
         defineProperties,
         DeveloperError,
         Event,
-        GeographicProjection,
         GeographicTilingScheme,
         loadJson,
         loadJsonp,
@@ -47,7 +44,7 @@ define([
         DiscardMissingTileImagePolicy,
         ImageryLayerFeatureInfo,
         ImageryProvider) {
-    "use strict";
+    'use strict';
 
     /**
      * Provides tiled imagery hosted by an ArcGIS MapServer.  By default, the server's pre-cached tiles are
@@ -94,10 +91,10 @@ define([
      *                                        a tiled server.
      *
      * @see BingMapsImageryProvider
-     * @see GoogleEarthImageryProvider
+     * @see GoogleEarthEnterpriseMapsProvider
      * @see createOpenStreetMapImageryProvider
      * @see SingleTileImageryProvider
-     * @see TileMapServiceImageryProvider
+     * @see createTileMapServiceImageryProvider
      * @see WebMapServiceImageryProvider
      * @see WebMapTileServiceImageryProvider
      * @see UrlTemplateImageryProvider
@@ -105,9 +102,9 @@ define([
      *
      * @example
      * var esri = new Cesium.ArcGisMapServerImageryProvider({
-     *     url: '//services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
+     *     url : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
      * });
-     * 
+     *
      * @see {@link http://resources.esri.com/help/9.3/arcgisserver/apis/rest/|ArcGIS Server REST API}
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      */
@@ -179,8 +176,9 @@ define([
                             data.fullExtent.spatialReference.wkid === 102113) {
 
                             var projection = new WebMercatorProjection();
-                            var sw = projection.unproject(new Cartesian2(data.fullExtent.xmin, data.fullExtent.ymin));
-                            var ne = projection.unproject(new Cartesian2(data.fullExtent.xmax, data.fullExtent.ymax));
+                            var extent = data.fullExtent;
+                            var sw = projection.unproject(new Cartesian3(Math.max(extent.xmin, -that._tilingScheme.ellipsoid.maximumRadius * Math.PI), Math.max(extent.ymin, -that._tilingScheme.ellipsoid.maximumRadius * Math.PI), 0.0));
+                            var ne = projection.unproject(new Cartesian3(Math.min(extent.xmax, that._tilingScheme.ellipsoid.maximumRadius * Math.PI), Math.min(extent.ymax, that._tilingScheme.ellipsoid.maximumRadius * Math.PI), 0.0));
                             that._rectangle = new Rectangle(sw.longitude, sw.latitude, ne.longitude, ne.latitude);
                         } else if (data.fullExtent.spatialReference.wkid === 4326) {
                             that._rectangle = Rectangle.fromDegrees(data.fullExtent.xmin, data.fullExtent.ymin, data.fullExtent.xmax, data.fullExtent.ymax);
@@ -547,6 +545,8 @@ define([
 
         /**
          * Gets the comma-separated list of layer IDs to show.
+         * @memberof ArcGisMapServerImageryProvider.prototype
+         *
          * @type {String}
          */
         layers : {
@@ -578,6 +578,7 @@ define([
      * @param {Number} x The tile X coordinate.
      * @param {Number} y The tile Y coordinate.
      * @param {Number} level The tile level.
+     * @param {Request} [request] The request object. Intended for internal use only.
      * @returns {Promise.<Image|Canvas>|undefined} A promise for the image that will resolve when the image is available, or
      *          undefined if there are too many active requests to the server, and the request
      *          should be retried later.  The resolved image may be either an
@@ -585,7 +586,7 @@ define([
      *
      * @exception {DeveloperError} <code>requestImage</code> must not be called before the imagery provider is ready.
      */
-    ArcGisMapServerImageryProvider.prototype.requestImage = function(x, y, level) {
+    ArcGisMapServerImageryProvider.prototype.requestImage = function(x, y, level, request) {
         //>>includeStart('debug', pragmas.debug);
         if (!this._ready) {
             throw new DeveloperError('requestImage must not be called before the imagery provider is ready.');
@@ -593,7 +594,7 @@ define([
         //>>includeEnd('debug');
 
         var url = buildImageUrl(this, x, y, level);
-        return ImageryProvider.loadImage(this, url);
+        return ImageryProvider.loadImage(this, url, request);
     };
 
     /**

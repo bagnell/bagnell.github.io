@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * An czm_material with default values. Every material's czm_getMaterial\n\
  * should use this default material as a base for the material it returns.\n\

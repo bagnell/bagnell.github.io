@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../../Core/buildModuleUrl',
         '../../Core/defaultValue',
@@ -21,7 +20,7 @@ define([
         knockout,
         getElement,
         NavigationHelpButtonViewModel) {
-    "use strict";
+    'use strict';
 
     /**
      * <p>The NavigationHelpButton is a single button widget for displaying instructions for

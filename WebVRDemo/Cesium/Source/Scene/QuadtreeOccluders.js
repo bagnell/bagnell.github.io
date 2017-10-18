@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/Cartesian3',
         '../Core/defineProperties',
@@ -7,7 +6,7 @@ define([
         Cartesian3,
         defineProperties,
         EllipsoidalOccluder) {
-    "use strict";
+    'use strict';
 
     /**
      * A set of occluders that can be used to test quadtree tiles for occlusion.

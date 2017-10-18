@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/clone',
         '../Core/defaultValue',
@@ -19,7 +18,7 @@ define([
         getTimestamp,
         TimeConstants,
         TweenJS) {
-    "use strict";
+    'use strict';
 
     /**
      * A tween is an animation that interpolates the properties of two objects using an {@link EasingFunction}.  Create
@@ -535,13 +534,11 @@ define([
             if (tween.needsStart) {
                 tween.needsStart = false;
                 tweenjs.start(time);
+            } else if (tweenjs.update(time)) {
+                i++;
             } else {
-                if (tweenjs.update(time)) {
-                    i++;
-                } else {
-                    tweenjs.stop();
-                    tweens.splice(i, 1);
-                }
+                tweenjs.stop();
+                tweens.splice(i, 1);
             }
         }
     };

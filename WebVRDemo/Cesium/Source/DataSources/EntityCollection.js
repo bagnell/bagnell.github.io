@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/AssociativeArray',
         '../Core/createGuid',
@@ -23,22 +22,36 @@ define([
         RuntimeError,
         TimeInterval,
         Entity) {
-    "use strict";
+    'use strict';
 
     var entityOptionsScratch = {
         id : undefined
     };
 
     function fireChangedEvent(collection) {
+        if (collection._firing) {
+            collection._refire = true;
+            return;
+        }
+
         if (collection._suspendCount === 0) {
             var added = collection._addedEntities;
             var removed = collection._removedEntities;
             var changed = collection._changedEntities;
             if (changed.length !== 0 || added.length !== 0 || removed.length !== 0) {
-                collection._collectionChanged.raiseEvent(collection, added.values, removed.values, changed.values);
-                added.removeAll();
-                removed.removeAll();
-                changed.removeAll();
+                collection._firing = true;
+                do {
+                    collection._refire = false;
+                    var addedArray = added.values.slice(0);
+                    var removedArray = removed.values.slice(0);
+                    var changedArray = changed.values.slice(0);
+
+                    added.removeAll();
+                    removed.removeAll();
+                    changed.removeAll();
+                    collection._collectionChanged.raiseEvent(collection, addedArray, removedArray, changedArray);
+                } while (collection._refire);
+                collection._firing = false;
             }
         }
     }
@@ -59,6 +72,9 @@ define([
         this._suspendCount = 0;
         this._collectionChanged = new Event();
         this._id = createGuid();
+        this._show = true;
+        this._firing = false;
+        this._refire  = false;
     }
 
     /**
@@ -138,6 +154,56 @@ define([
         values : {
             get : function() {
                 return this._entities.values;
+            }
+        },
+        /**
+         * Gets whether or not this entity collection should be
+         * displayed.  When true, each entity is only displayed if
+         * its own show property is also true.
+         * @memberof EntityCollection.prototype
+         * @type {Boolean}
+         */
+        show : {
+            get : function() {
+                return this._show;
+            },
+            set : function(value) {
+                //>>includeStart('debug', pragmas.debug);
+                if (!defined(value)) {
+                    throw new DeveloperError('value is required.');
+                }
+                //>>includeEnd('debug');
+
+                if (value === this._show) {
+                    return;
+                }
+
+                //Since entity.isShowing includes the EntityCollection.show state
+                //in its calculation, we need to loop over the entities array
+                //twice, once to get the old showing value and a second time
+                //to raise the changed event.
+                this.suspendEvents();
+
+                var i;
+                var oldShows = [];
+                var entities = this._entities.values;
+                var entitiesLength = entities.length;
+
+                for (i = 0; i < entitiesLength; i++) {
+                    oldShows.push(entities[i].isShowing);
+                }
+
+                this._show = value;
+
+                for (i = 0; i < entitiesLength; i++) {
+                    var oldShow = oldShows[i];
+                    var entity = entities[i];
+                    if (oldShow !== entity.isShowing) {
+                        entity.definitionChanged.raiseEvent(entity, 'isShowing', entity.isShowing, oldShow);
+                    }
+                }
+
+                this.resumeEvents();
             }
         },
         /**
@@ -259,7 +325,7 @@ define([
     /**
      * Removes an entity with the provided id from the collection.
      *
-     * @param {Object} id The id of the entity to remove.
+     * @param {String} id The id of the entity to remove.
      * @returns {Boolean} true if the item was removed, false if no item with the provided id existed in the collection.
      */
     EntityCollection.prototype.removeById = function(id) {
@@ -316,7 +382,7 @@ define([
     /**
      * Gets an entity with the specified id.
      *
-     * @param {Object} id The id of the entity to retrieve.
+     * @param {String} id The id of the entity to retrieve.
      * @returns {Entity} The entity with the provided id or undefined if the id did not exist in the collection.
      */
     EntityCollection.prototype.getById = function(id) {
@@ -332,7 +398,7 @@ define([
     /**
      * Gets an entity with the specified id or creates it and adds it to the collection if it does not exist.
      *
-     * @param {Object} id The id of the entity to retrieve or create.
+     * @param {String} id The id of the entity to retrieve or create.
      * @returns {Entity} The new or existing object.
      */
     EntityCollection.prototype.getOrCreateEntity = function(id) {

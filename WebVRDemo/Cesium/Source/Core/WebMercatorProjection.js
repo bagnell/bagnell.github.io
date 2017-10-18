@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './Cartesian3',
         './Cartographic',
@@ -17,7 +16,7 @@ define([
         DeveloperError,
         Ellipsoid,
         CesiumMath) {
-    "use strict";
+    'use strict';
 
     /**
      * The map projection used by Google Maps, Bing Maps, and most of ArcGIS Online, EPSG:3857.  This

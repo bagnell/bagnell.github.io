@@ -1,11 +1,10 @@
-/*global define*/
 define([
         './defined',
         './DeveloperError'
     ], function(
         defined,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     var leftScratchArray = [];
     var rightScratchArray = [];

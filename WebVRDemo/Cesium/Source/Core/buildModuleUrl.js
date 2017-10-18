@@ -1,17 +1,18 @@
-/*global define*/
 define([
         '../ThirdParty/Uri',
         './defined',
         './DeveloperError',
         './getAbsoluteUri',
+        './joinUrls',
         'require'
     ], function(
         Uri,
         defined,
         DeveloperError,
         getAbsoluteUri,
+        joinUrls,
         require) {
-    "use strict";
+    'use strict';
     /*global CESIUM_BASE_URL*/
 
     var cesiumScriptRegex = /((?:.*\/)|^)cesium[\w-]*\.js(?:\W|$)/i;
@@ -40,11 +41,13 @@ define([
             baseUrlString = getBaseUrlFromCesiumScript();
         }
 
+        //>>includeStart('debug', pragmas.debug);
         if (!defined(baseUrlString)) {
             throw new DeveloperError('Unable to determine Cesium base URL automatically, try defining a global variable called CESIUM_BASE_URL.');
         }
+        //>>includeEnd('debug');
 
-        baseUrl = getAbsoluteUri(baseUrlString);
+        baseUrl = new Uri(getAbsoluteUri(baseUrlString));
 
         return baseUrl;
     }
@@ -55,7 +58,7 @@ define([
     }
 
     function buildModuleUrlFromBaseUrl(moduleID) {
-        return new Uri(moduleID).resolve(getCesiumBaseUrl()).toString();
+        return joinUrls(getCesiumBaseUrl(), moduleID);
     }
 
     var implementation;
@@ -71,7 +74,7 @@ define([
     function buildModuleUrl(moduleID) {
         if (!defined(implementation)) {
             //select implementation
-            if (defined(require.toUrl)) {
+            if (defined(define.amd) && !define.amd.toUrlUndefined && defined(require.toUrl)) {
                 implementation = buildModuleUrlFromRequireToUrl;
             } else {
                 implementation = buildModuleUrlFromBaseUrl;

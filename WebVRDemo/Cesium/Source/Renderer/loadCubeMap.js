@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defined',
         '../Core/DeveloperError',
@@ -11,7 +10,7 @@ define([
         loadImage,
         when,
         CubeMap) {
-    "use strict";
+    'use strict';
 
     /**
      * Asynchronously loads six images and creates a cube map.  Returns a promise that
@@ -20,7 +19,7 @@ define([
      * @exports loadCubeMap
      *
      * @param {Context} context The context to use to create the cube map.
-     * @param {Object} urls The source of each image, or a promise for each URL.  See the example below.
+     * @param {Object} urls The source URL of each image.  See the example below.
      * @param {Boolean} [allowCrossOrigin=true] Whether to request the image using Cross-Origin
      *        Resource Sharing (CORS).  CORS is only actually used if the image URL is actually cross-origin.
      *        Data URIs are never requested using CORS.
@@ -43,7 +42,7 @@ define([
      * }).otherwise(function(error) {
      *     // an error occurred
      * });
-     * 
+     *
      * @see {@link http://www.w3.org/TR/cors/|Cross-Origin Resource Sharing}
      * @see {@link http://wiki.commonjs.org/wiki/Promises/A|CommonJS Promises/A}
      *

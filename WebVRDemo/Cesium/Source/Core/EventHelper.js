@@ -1,11 +1,10 @@
-/*global define*/
 define([
         './defined',
         './DeveloperError'
     ], function(
         defined,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * A convenience object that simplifies the common pattern of attaching event listeners
@@ -24,7 +23,7 @@ define([
      *
      * // later...
      * helper.removeAll();
-     * 
+     *
      * @see Event
      */
     function EventHelper() {

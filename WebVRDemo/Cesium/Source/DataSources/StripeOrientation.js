@@ -1,9 +1,8 @@
-/*global define*/
 define([
         '../Core/freezeObject'
     ], function(
         freezeObject) {
-    "use strict";
+    'use strict';
 
     /**
      * Defined the orientation of stripes in {@link StripeMaterialProperty}.

@@ -1,31 +1,45 @@
-/*global define*/
 define([
         '../Core/AssociativeArray',
         '../Core/BoundingSphere',
+        '../Core/Color',
         '../Core/defined',
         '../Core/destroyObject',
         '../Core/DeveloperError',
         '../Core/Matrix4',
+        '../Scene/ColorBlendMode',
+        '../Scene/HeightReference',
         '../Scene/Model',
         '../Scene/ModelAnimationLoop',
+        '../Scene/ShadowMode',
         './BoundingSphereState',
         './Property'
     ], function(
         AssociativeArray,
         BoundingSphere,
+        Color,
         defined,
         destroyObject,
         DeveloperError,
         Matrix4,
+        ColorBlendMode,
+        HeightReference,
         Model,
         ModelAnimationLoop,
+        ShadowMode,
         BoundingSphereState,
         Property) {
-    "use strict";
+    'use strict';
 
     var defaultScale = 1.0;
     var defaultMinimumPixelSize = 0.0;
     var defaultIncrementallyLoadTextures = true;
+    var defaultShadows = ShadowMode.ENABLED;
+    var defaultHeightReference = HeightReference.NONE;
+    var defaultSilhouetteColor = Color.RED;
+    var defaultSilhouetteSize = 0.0;
+    var defaultColor = Color.WHITE;
+    var defaultColorBlendMode = ColorBlendMode.HIGHLIGHT;
+    var defaultColorBlendAmount = 0.5;
 
     var modelMatrixScratch = new Matrix4();
     var nodeMatrixScratch = new Matrix4();
@@ -86,7 +100,7 @@ define([
 
             var modelMatrix;
             if (show) {
-                modelMatrix = entity._getModelMatrix(time, modelMatrixScratch);
+                modelMatrix = entity.computeModelMatrix(time, modelMatrixScratch);
                 uri = Property.getValueOrUndefined(modelGraphics._uri, time);
                 show = defined(modelMatrix) && defined(uri);
             }
@@ -106,7 +120,8 @@ define([
                 }
                 model = Model.fromGltf({
                     url : uri,
-                    incrementallyLoadTextures : Property.getValueOrDefault(modelGraphics._incrementallyLoadTextures, time, defaultIncrementallyLoadTextures)
+                    incrementallyLoadTextures : Property.getValueOrDefault(modelGraphics._incrementallyLoadTextures, time, defaultIncrementallyLoadTextures),
+                    scene : this._scene
                 });
 
                 model.readyPromise.otherwise(onModelError);
@@ -129,6 +144,14 @@ define([
             model.minimumPixelSize = Property.getValueOrDefault(modelGraphics._minimumPixelSize, time, defaultMinimumPixelSize);
             model.maximumScale = Property.getValueOrUndefined(modelGraphics._maximumScale, time);
             model.modelMatrix = Matrix4.clone(modelMatrix, model.modelMatrix);
+            model.shadows = Property.getValueOrDefault(modelGraphics._shadows, time, defaultShadows);
+            model.heightReference = Property.getValueOrDefault(modelGraphics._heightReference, time, defaultHeightReference);
+            model.distanceDisplayCondition = Property.getValueOrUndefined(modelGraphics._distanceDisplayCondition, time);
+            model.silhouetteColor = Property.getValueOrDefault(modelGraphics._silhouetteColor, time, defaultSilhouetteColor, model._silhouetteColor);
+            model.silhouetteSize = Property.getValueOrDefault(modelGraphics._silhouetteSize, time, defaultSilhouetteSize);
+            model.color = Property.getValueOrDefault(modelGraphics._color, time, defaultColor, model._color);
+            model.colorBlendMode = Property.getValueOrDefault(modelGraphics._colorBlendMode, time, defaultColorBlendMode);
+            model.colorBlendAmount = Property.getValueOrDefault(modelGraphics._colorBlendAmount, time, defaultColorBlendAmount);
 
             if (model.ready) {
                 var runAnimations = Property.getValueOrDefault(modelGraphics._runAnimations, time, true);
@@ -235,7 +258,14 @@ define([
             return BoundingSphereState.PENDING;
         }
 
-        BoundingSphere.transform(model.boundingSphere, model.modelMatrix, result);
+        if (model.heightReference === HeightReference.NONE) {
+            BoundingSphere.transform(model.boundingSphere, model.modelMatrix, result);
+        } else {
+            if (!defined(model._clampedModelMatrix)) {
+                return BoundingSphereState.PENDING;
+            }
+            BoundingSphere.transform(model.boundingSphere, model._clampedModelMatrix, result);
+        }
         return BoundingSphereState.DONE;
     };
 

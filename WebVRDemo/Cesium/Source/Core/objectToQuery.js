@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './defined',
         './DeveloperError',
@@ -7,7 +6,7 @@ define([
         defined,
         DeveloperError,
         isArray) {
-    "use strict";
+    'use strict';
 
     /**
      * Converts an object representing a set of name/value pairs into a query string,
@@ -25,7 +24,7 @@ define([
      *     key2 : 'a/b',
      *     key3 : ['x', 'y']
      * });
-     * 
+     *
      * @see queryToObject
      * // str will be:
      * // 'key1=some%20value&key2=a%2Fb&key3=x&key3=y'

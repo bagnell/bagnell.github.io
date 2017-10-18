@@ -1,17 +1,16 @@
-/*global define*/
 define([
-       '../Core/Credit',
-       '../Core/defaultValue',
-       '../Core/defined',
-       '../Core/destroyObject',
-       '../Core/DeveloperError'
+        '../Core/Credit',
+        '../Core/defaultValue',
+        '../Core/defined',
+        '../Core/destroyObject',
+        '../Core/DeveloperError'
     ], function(
         Credit,
         defaultValue,
         defined,
         destroyObject,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     function displayTextCredit(credit, container, delimiter) {
         if (!defined(credit.element)) {
@@ -270,8 +269,6 @@ define([
 
     /**
      * Resets the credit display to a beginning of frame state, clearing out current credits.
-     *
-     * @param {Credit} credit The credit to display
      */
     CreditDisplay.prototype.beginFrame = function() {
         this._currentFrameCredits.imageCredits.length = 0;
@@ -280,8 +277,6 @@ define([
 
     /**
      * Sets the credit display to the end of frame state, displaying current credits in the credit container
-     *
-     * @param {Credit} credit The credit to display
      */
     CreditDisplay.prototype.endFrame = function() {
         var textCredits = this._defaultTextCredits.concat(this._currentFrameCredits.textCredits);

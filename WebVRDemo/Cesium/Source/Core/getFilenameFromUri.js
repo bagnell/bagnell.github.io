@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../ThirdParty/Uri',
         './defined',
@@ -7,7 +6,7 @@ define([
         Uri,
         defined,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * Given a URI, returns the last segment of the URI, removing any path or query information.

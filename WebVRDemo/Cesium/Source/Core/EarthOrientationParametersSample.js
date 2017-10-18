@@ -1,6 +1,5 @@
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
 
     /**
      * A set of Earth Orientation Parameters (EOP) sampled at a time.

@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defined',
         '../Core/defineProperties',
@@ -15,7 +14,7 @@ define([
         EventHelper,
         TimeIntervalCollection,
         Property) {
-    "use strict";
+    'use strict';
 
     function subscribeAll(property, eventHelper, definitionChanged, intervals) {
         function callback() {
@@ -60,7 +59,7 @@ define([
      *     isStopIncluded : false,
      *     data : sampledProperty
      * }));
-     * 
+     *
      * @see CompositeMaterialProperty
      * @see CompositePositionProperty
      */

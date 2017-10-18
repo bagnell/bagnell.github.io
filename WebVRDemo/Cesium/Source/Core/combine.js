@@ -1,11 +1,10 @@
-/*global define*/
 define([
         './defaultValue',
         './defined'
     ], function(
         defaultValue,
         defined) {
-    "use strict";
+    'use strict';
 
     /**
      * Merges two objects, copying their properties onto a new combined object. When two objects have the same

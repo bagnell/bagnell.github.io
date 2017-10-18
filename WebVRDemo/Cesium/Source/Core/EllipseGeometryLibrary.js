@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './Cartesian3',
         './Math',
@@ -9,7 +8,7 @@ define([
         CesiumMath,
         Matrix3,
         Quaternion) {
-    "use strict";
+    'use strict';
 
     var EllipseGeometryLibrary = {};
 

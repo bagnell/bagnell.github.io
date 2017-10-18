@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './defaultValue',
         './defined',
@@ -13,7 +12,7 @@ define([
         DeveloperError,
         Quaternion,
         Spline) {
-    "use strict";
+    'use strict';
 
     function computeInnerQuadrangles(points, firstInnerQuadrangle, lastInnerQuadrangle) {
         var length = points.length;
@@ -90,6 +89,7 @@ define([
      * @see HermiteSpline
      * @see CatmullRomSpline
      * @see LinearSpline
+     * @see WeightSpline
      */
     function QuaternionSpline(options) {
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);

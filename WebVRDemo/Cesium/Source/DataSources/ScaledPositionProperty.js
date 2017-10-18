@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defined',
         '../Core/defineProperties',
@@ -15,7 +14,7 @@ define([
         Event,
         ReferenceFrame,
         Property) {
-    "use strict";
+    'use strict';
 
     /**
      * This is a temporary class for scaling position properties to the WGS84 surface.

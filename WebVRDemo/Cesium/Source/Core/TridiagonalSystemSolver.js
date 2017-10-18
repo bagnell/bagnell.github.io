@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './Cartesian3',
         './defined',
@@ -7,7 +6,7 @@ define([
         Cartesian3,
         defined,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * Uses the Tridiagonal Matrix Algorithm, also known as the Thomas Algorithm, to solve

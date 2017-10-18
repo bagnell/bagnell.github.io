@@ -1,11 +1,10 @@
-/*global define*/
 define([
         './defined',
         './getTimestamp'
     ], function(
         defined,
         getTimestamp) {
-    "use strict";
+    'use strict';
 
     if (typeof window === 'undefined') {
         return;
@@ -51,7 +50,7 @@ define([
      * @exports requestAnimationFrame
      *
      * @param {requestAnimationFrame~Callback} callback The function to call when the next frame should be drawn.
-     * @returns An ID that can be passed to {@link cancelAnimationFrame} to cancel the request.
+     * @returns {Number} An ID that can be passed to {@link cancelAnimationFrame} to cancel the request.
      *
      *
      * @example
@@ -62,7 +61,7 @@ define([
      *   Cesium.requestAnimationFrame(tick);
      * }
      * tick();
-     * 
+     *
      * @see {@link http://www.w3.org/TR/animation-timing/#the-WindowAnimationTiming-interface|The WindowAnimationTiming interface}
      */
     function requestAnimationFrame(callback) {

@@ -1,23 +1,18 @@
-/*global define*/
 define([
         '../Core/Color',
         '../Core/defined',
         '../Core/defineProperties',
-        '../Core/DeveloperError',
         '../Core/Event',
-        './ConstantProperty',
         './createPropertyDescriptor',
         './Property'
     ], function(
         Color,
         defined,
         defineProperties,
-        DeveloperError,
         Event,
-        ConstantProperty,
         createPropertyDescriptor,
         Property) {
-    "use strict";
+    'use strict';
 
     /**
      * A {@link MaterialProperty} that maps to solid color {@link Material} uniforms.

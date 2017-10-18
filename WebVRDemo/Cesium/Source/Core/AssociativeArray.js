@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './defined',
         './defineProperties',
@@ -7,7 +6,7 @@ define([
         defined,
         defineProperties,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * A collection of key-value pairs that is stored as a hash for easy

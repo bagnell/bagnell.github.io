@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * Calculates the intensity of diffusely reflected light.\n\
  *\n\
@@ -23,5 +22,6 @@ define(function() {
 float czm_getLambertDiffuse(vec3 lightDirectionEC, vec3 normalEC)\n\
 {\n\
     return max(dot(lightDirectionEC, normalEC), 0.0);\n\
-}";
+}\n\
+";
 });

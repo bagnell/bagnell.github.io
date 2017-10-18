@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../../Core/defined',
         '../../Core/defineProperties',
@@ -15,7 +14,7 @@ define([
         knockout,
         getElement,
         HomeButtonViewModel) {
-    "use strict";
+    'use strict';
 
     /**
      * A single button widget for returning to the default camera view of the current scene.

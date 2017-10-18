@@ -1,9 +1,8 @@
-/*global define*/
 define([
         '../Core/defined'
     ], function(
         defined) {
-    "use strict";
+    'use strict';
 
     /**
      * Describes a rasterized feature, such as a point, polygon, polyline, etc., in an imagery layer.

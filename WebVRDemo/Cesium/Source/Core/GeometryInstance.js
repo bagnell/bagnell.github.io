@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './defaultValue',
         './defined',
@@ -9,7 +8,7 @@ define([
         defined,
         DeveloperError,
         Matrix4) {
-    "use strict";
+    'use strict';
 
     /**
      * Geometry instancing allows one {@link Geometry} object to be positions in several
@@ -53,7 +52,7 @@ define([
      *   },
      *   id : 'top'
      * });
-     * 
+     *
      * @see Geometry
      */
     function GeometryInstance(options) {

@@ -1,18 +1,11 @@
-/*global define*/
 define([
         '../Core/BoundingRectangle',
         '../Core/Color',
-        '../Core/ComponentDatatype',
-        '../Core/defaultValue',
         '../Core/defined',
-        '../Core/defineProperties',
         '../Core/destroyObject',
         '../Core/DeveloperError',
-        '../Core/Geometry',
-        '../Core/GeometryAttribute',
         '../Core/PrimitiveType',
         '../Shaders/ViewportQuadVS',
-        './BufferUsage',
         './ClearCommand',
         './DrawCommand',
         './Framebuffer',
@@ -21,23 +14,17 @@ define([
     ], function(
         BoundingRectangle,
         Color,
-        ComponentDatatype,
-        defaultValue,
         defined,
-        defineProperties,
         destroyObject,
         DeveloperError,
-        Geometry,
-        GeometryAttribute,
         PrimitiveType,
         ViewportQuadVS,
-        BufferUsage,
         ClearCommand,
         DrawCommand,
         Framebuffer,
         RenderState,
         ShaderProgram) {
-    "use strict";
+    'use strict';
 
     /**
      * @private

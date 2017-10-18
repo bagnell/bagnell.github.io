@@ -1,9 +1,8 @@
-/*global define*/
 define([
         '../Core/defined'
     ], function(
         defined) {
-    "use strict";
+    'use strict';
 
     /**
      * A priority queue of tiles to be replaced, if necessary, to make room for new tiles.  The queue

@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/BoundingSphere',
         '../Core/buildModuleUrl',
@@ -11,7 +10,7 @@ define([
         '../Core/DeveloperError',
         '../Core/Ellipsoid',
         '../Core/EllipsoidTerrainProvider',
-        '../Core/GeographicProjection',
+        '../Core/Event',
         '../Core/IntersectionTests',
         '../Core/loadImage',
         '../Core/Ray',
@@ -26,7 +25,8 @@ define([
         './GlobeSurfaceTileProvider',
         './ImageryLayerCollection',
         './QuadtreePrimitive',
-        './SceneMode'
+        './SceneMode',
+        './ShadowMode'
     ], function(
         BoundingSphere,
         buildModuleUrl,
@@ -39,7 +39,7 @@ define([
         DeveloperError,
         Ellipsoid,
         EllipsoidTerrainProvider,
-        GeographicProjection,
+        Event,
         IntersectionTests,
         loadImage,
         Ray,
@@ -54,8 +54,9 @@ define([
         GlobeSurfaceTileProvider,
         ImageryLayerCollection,
         QuadtreePrimitive,
-        SceneMode) {
-    "use strict";
+        SceneMode,
+        ShadowMode) {
+    'use strict';
 
     /**
      * The globe rendered in the scene, including its terrain ({@link Globe#terrainProvider})
@@ -95,11 +96,8 @@ define([
             })
         });
 
-        /**
-         * The terrain provider providing surface geometry for this globe.
-         * @type {TerrainProvider}
-         */
-        this.terrainProvider = terrainProvider;
+        this._terrainProvider = terrainProvider;
+        this._terrainProviderChanged = new Event();
 
         /**
          * Determines if the globe will be shown.
@@ -188,6 +186,16 @@ define([
          */
         this.depthTestAgainstTerrain = false;
 
+        /**
+         * Determines whether the globe casts or receives shadows from each light source. Setting the globe
+         * to cast shadows may impact performance since the terrain is rendered again from the light's perspective.
+         * Currently only terrain that is in view casts shadows. By default the globe does not cast shadows.
+         *
+         * @type {ShadowMode}
+         * @default ShadowMode.RECEIVE_ONLY
+         */
+        this.shadows = ShadowMode.RECEIVE_ONLY;
+
         this._oceanNormalMap = undefined;
         this._zoomedOutOceanSpecularIntensity = 0.5;
     }
@@ -224,6 +232,37 @@ define([
             },
             set : function(value) {
                 this._surface.tileProvider.baseColor = value;
+            }
+        },
+        /**
+         * The terrain provider providing surface geometry for this globe.
+         * @type {TerrainProvider}
+         *
+         * @memberof Globe.prototype
+         * @type {TerrainProvider}
+         *
+         */
+        terrainProvider : {
+            get : function() {
+                return this._terrainProvider;
+            },
+            set : function(value) {
+                if (value !== this._terrainProvider) {
+                    this._terrainProvider = value;
+                    this._terrainProviderChanged.raiseEvent(value);
+                }
+            }
+        },
+        /**
+         * Gets an event that's raised when the terrain provider is changed
+         *
+         * @memberof Globe.prototype
+         * @type {Event}
+         * @readonly
+         */
+        terrainProviderChanged : {
+            get: function() {
+                return this._terrainProviderChanged;
             }
         },
         /**
@@ -331,6 +370,10 @@ define([
     var scratchGetHeightCartographic = new Cartographic();
     var scratchGetHeightRay = new Ray();
 
+    function tileIfContainsCartographic(tile, cartographic) {
+        return Rectangle.contains(tile.rectangle, cartographic) ? tile : undefined;
+    }
+
     /**
      * Get the height of the surface at a given cartographic.
      *
@@ -365,15 +408,10 @@ define([
         }
 
         while (tile.renderable) {
-            var children = tile.children;
-            length = children.length;
-
-            for (i = 0; i < length; ++i) {
-                tile = children[i];
-                if (Rectangle.contains(tile.rectangle, cartographic)) {
-                    break;
-                }
-            }
+            tile = tileIfContainsCartographic(tile.southwestChild, cartographic) ||
+                   tileIfContainsCartographic(tile.southeastChild, cartographic) ||
+                   tileIfContainsCartographic(tile.northwestChild, cartographic) ||
+                   tile.northeastChild;
         }
 
         while (defined(tile) && (!defined(tile.data) || !defined(tile.data.pickTerrain))) {
@@ -385,10 +423,27 @@ define([
         }
 
         var ellipsoid = this._surface._tileProvider.tilingScheme.ellipsoid;
-        var cartesian = ellipsoid.cartographicToCartesian(cartographic, scratchGetHeightCartesian);
+
+        //cartesian has to be on the ellipsoid surface for `ellipsoid.geodeticSurfaceNormal`
+        var cartesian = Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, 0.0, ellipsoid, scratchGetHeightCartesian);
 
         var ray = scratchGetHeightRay;
-        Cartesian3.normalize(cartesian, ray.direction);
+        var surfaceNormal = ellipsoid.geodeticSurfaceNormal(cartesian, ray.direction);
+
+        // Try to find the intersection point between the surface normal and z-axis.
+        // minimum height (-11500.0) for the terrain set, need to get this information from the terrain provider
+        var rayOrigin = ellipsoid.getSurfaceNormalIntersectionWithZAxis(cartesian, 11500.0, ray.origin);
+
+        // Theoretically, not with Earth datums, the intersection point can be outside the ellipsoid
+        if (!defined(rayOrigin)) {
+            // intersection point is outside the ellipsoid, try other value
+            // minimum height (-11500.0) for the terrain set, need to get this information from the terrain provider
+            var magnitude = Math.min(defaultValue(tile.data.minimumHeight, 0.0),-11500.0);
+
+            // multiply by the *positive* value of the magnitude
+            var vectorToMinimumPoint = Cartesian3.multiplyByScalar(surfaceNormal, Math.abs(magnitude) + 1, scratchGetHeightIntersection);
+            Cartesian3.subtract(cartesian, vectorToMinimumPoint, ray.origin);
+        }
 
         var intersection = tile.data.pick(ray, undefined, undefined, false, scratchGetHeightIntersection);
         if (!defined(intersection)) {
@@ -401,16 +456,8 @@ define([
     /**
      * @private
      */
-    Globe.prototype.update = function(frameState) {
+    Globe.prototype.beginFrame = function(frameState) {
         if (!this.show) {
-            return;
-        }
-
-        var context = frameState.context;
-        var width = context.drawingBufferWidth;
-        var height = context.drawingBufferHeight;
-
-        if (width === 0 || height === 0) {
             return;
         }
 
@@ -434,7 +481,7 @@ define([
 
                     that._oceanNormalMap = that._oceanNormalMap && that._oceanNormalMap.destroy();
                     that._oceanNormalMap = new Texture({
-                        context : context,
+                        context : frameState.context,
                         source : image
                     });
                 });
@@ -464,12 +511,42 @@ define([
             tileProvider.hasWaterMask = hasWaterMask;
             tileProvider.oceanNormalMap = this._oceanNormalMap;
             tileProvider.enableLighting = this.enableLighting;
+            tileProvider.shadows = this.shadows;
 
+            surface.beginFrame(frameState);
+        }
+    };
+
+    /**
+     * @private
+     */
+    Globe.prototype.update = function(frameState) {
+        if (!this.show) {
+            return;
+        }
+
+        var surface = this._surface;
+        var pass = frameState.passes;
+
+        if (pass.render) {
             surface.update(frameState);
         }
 
         if (pass.pick) {
             surface.update(frameState);
+        }
+    };
+
+    /**
+     * @private
+     */
+    Globe.prototype.endFrame = function(frameState) {
+        if (!this.show) {
+            return;
+        }
+
+        if (frameState.passes.render) {
+            this._surface.endFrame(frameState);
         }
     };
 
@@ -502,7 +579,7 @@ define([
      *
      * @example
      * globe = globe && globe.destroy();
-     * 
+     *
      * @see Globe#isDestroyed
      */
     Globe.prototype.destroy = function() {

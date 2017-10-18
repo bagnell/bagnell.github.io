@@ -1,8 +1,6 @@
-/*global define*/
 define([
         '../Core/defaultValue',
         '../Core/defined',
-        '../Core/definedNotNull',
         '../Core/defineProperties',
         '../Core/destroyObject',
         '../Core/DeveloperError',
@@ -14,7 +12,6 @@ define([
     ], function(
         defaultValue,
         defined,
-        definedNotNull,
         defineProperties,
         destroyObject,
         DeveloperError,
@@ -23,7 +20,7 @@ define([
         ContextLimits,
         createUniform,
         createUniformArray) {
-    "use strict";
+    'use strict';
 
     var nextShaderProgramId = 0;
 
@@ -63,6 +60,7 @@ define([
          */
         this.id = nextShaderProgramId++;
     }
+
     ShaderProgram.fromCache = function(options) {
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
@@ -135,7 +133,7 @@ define([
     function extractUniforms(shaderText) {
         var uniformNames = [];
         var uniformLines = shaderText.match(/uniform.*?(?![^{]*})(?=[=\[;])/g);
-        if (definedNotNull(uniformLines)) {
+        if (defined(uniformLines)) {
             var len = uniformLines.length;
             for (var i = 0; i < len; i++) {
                 var line = uniformLines[i].trim();
@@ -510,9 +508,11 @@ define([
             var program = this._program;
 
             gl.validateProgram(program);
+            //>>includeStart('debug', pragmas.debug);
             if (!gl.getProgramParameter(program, gl.VALIDATE_STATUS)) {
                 throw new DeveloperError('Program validation failed.  Program info log: ' + gl.getProgramInfoLog(program));
             }
+            //>>includeEnd('debug');
         }
     };
 

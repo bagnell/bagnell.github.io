@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './BoundingSphere',
         './Cartesian3',
@@ -31,14 +30,14 @@ define([
         PrimitiveType,
         VertexFormat,
         WallGeometryLibrary) {
-    "use strict";
+    'use strict';
 
     var scratchCartesian3Position1 = new Cartesian3();
     var scratchCartesian3Position2 = new Cartesian3();
     var scratchCartesian3Position3 = new Cartesian3();
     var scratchCartesian3Position4 = new Cartesian3();
     var scratchCartesian3Position5 = new Cartesian3();
-    var scratchBinormal = new Cartesian3();
+    var scratchBitangent = new Cartesian3();
     var scratchTangent = new Cartesian3();
     var scratchNormal = new Cartesian3();
 
@@ -92,9 +91,6 @@ define([
         if (!defined(wallPositions)) {
             throw new DeveloperError('options.positions is required.');
         }
-        if (wallPositions.length < 2) {
-            throw new DeveloperError('options.positions length must be greater than or equal to 2.');
-        }
         if (defined(maximumHeights) && maximumHeights.length !== wallPositions.length) {
             throw new DeveloperError('options.positions and options.maximumHeights must have the same length.');
         }
@@ -136,6 +132,8 @@ define([
      * @param {WallGeometry} value The value to pack.
      * @param {Number[]} array The array to pack into.
      * @param {Number} [startingIndex=0] The index into the array at which to start packing the elements.
+     *
+     * @returns {Number[]} The array that was packed into
      */
     WallGeometry.pack = function(value, array, startingIndex) {
         //>>includeStart('debug', pragmas.debug);
@@ -186,6 +184,8 @@ define([
         startingIndex += VertexFormat.packedLength;
 
         array[startingIndex] = value._granularity;
+
+        return array;
     };
 
     var scratchEllipsoid = Ellipsoid.clone(Ellipsoid.UNIT_SPHERE);
@@ -300,7 +300,7 @@ define([
      *   maximumHeight : 10000.0
      * });
      * var geometry = Cesium.WallGeometry.createGeometry(wall);
-     * 
+     *
      * @see WallGeometry#createGeometry
      */
     WallGeometry.fromConstantHeights = function(options) {
@@ -363,11 +363,12 @@ define([
 
         var pos = WallGeometryLibrary.computePositions(ellipsoid, wallPositions, maximumHeights, minimumHeights, granularity, true);
         if (!defined(pos)) {
-            return undefined;
+            return;
         }
 
         var bottomPositions = pos.bottomPositions;
         var topPositions = pos.topPositions;
+        var numCorners = pos.numCorners;
 
         var length = topPositions.length;
         var size = length * 2;
@@ -375,12 +376,12 @@ define([
         var positions = vertexFormat.position ? new Float64Array(size) : undefined;
         var normals = vertexFormat.normal ? new Float32Array(size) : undefined;
         var tangents = vertexFormat.tangent ? new Float32Array(size) : undefined;
-        var binormals = vertexFormat.binormal ? new Float32Array(size) : undefined;
+        var bitangents = vertexFormat.bitangent ? new Float32Array(size) : undefined;
         var textureCoordinates = vertexFormat.st ? new Float32Array(size / 3 * 2) : undefined;
 
         var positionIndex = 0;
         var normalIndex = 0;
-        var binormalIndex = 0;
+        var bitangentIndex = 0;
         var tangentIndex = 0;
         var stIndex = 0;
 
@@ -388,7 +389,7 @@ define([
         // points being even and upper points being odd
         var normal = scratchNormal;
         var tangent = scratchTangent;
-        var binormal = scratchBinormal;
+        var bitangent = scratchBitangent;
         var recomputeNormal = true;
         length /= 3;
         var i;
@@ -418,7 +419,7 @@ define([
                 textureCoordinates[stIndex++] = 1.0;
             }
 
-            if (vertexFormat.normal || vertexFormat.tangent || vertexFormat.binormal) {
+            if (vertexFormat.normal || vertexFormat.tangent || vertexFormat.bitangent) {
                 var nextPosition;
                 var nextTop = Cartesian3.clone(Cartesian3.ZERO, scratchCartesian3Position5);
                 var groundPosition = ellipsoid.scaleToGeodeticSurface(Cartesian3.fromArray(topPositions, i3, scratchCartesian3Position2), scratchCartesian3Position2);
@@ -441,8 +442,8 @@ define([
                     if (vertexFormat.tangent) {
                         tangent = Cartesian3.normalize(Cartesian3.subtract(nextPosition, groundPosition, tangent), tangent);
                     }
-                    if (vertexFormat.binormal) {
-                        binormal = Cartesian3.normalize(Cartesian3.cross(normal, tangent, binormal), binormal);
+                    if (vertexFormat.bitangent) {
+                        bitangent = Cartesian3.normalize(Cartesian3.cross(normal, tangent, bitangent), bitangent);
                     }
                 }
 
@@ -466,14 +467,14 @@ define([
                     tangents[tangentIndex++] = tangent.z;
                 }
 
-                if (vertexFormat.binormal) {
-                    binormals[binormalIndex++] = binormal.x;
-                    binormals[binormalIndex++] = binormal.y;
-                    binormals[binormalIndex++] = binormal.z;
+                if (vertexFormat.bitangent) {
+                    bitangents[bitangentIndex++] = bitangent.x;
+                    bitangents[bitangentIndex++] = bitangent.y;
+                    bitangents[bitangentIndex++] = bitangent.z;
 
-                    binormals[binormalIndex++] = binormal.x;
-                    binormals[binormalIndex++] = binormal.y;
-                    binormals[binormalIndex++] = binormal.z;
+                    bitangents[bitangentIndex++] = bitangent.x;
+                    bitangents[bitangentIndex++] = bitangent.y;
+                    bitangents[bitangentIndex++] = bitangent.z;
                 }
             }
         }
@@ -504,11 +505,11 @@ define([
             });
         }
 
-        if (vertexFormat.binormal) {
-            attributes.binormal = new GeometryAttribute({
+        if (vertexFormat.bitangent) {
+            attributes.bitangent = new GeometryAttribute({
                 componentDatatype : ComponentDatatype.FLOAT,
                 componentsPerAttribute : 3,
-                values : binormals
+                values : bitangents
             });
         }
 
@@ -535,7 +536,7 @@ define([
         //
 
         var numVertices = size / 3;
-        size -= 6;
+        size -= 6 * (numCorners + 1);
         var indices = IndexDatatype.createTypedArray(numVertices, size);
 
         var edgeIndex = 0;

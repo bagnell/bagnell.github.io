@@ -1,17 +1,14 @@
-/*global define*/
 define([
         '../ThirdParty/Uri',
         './defaultValue',
         './defined',
-        './definedNotNull',
         './DeveloperError'
     ], function(
         Uri,
         defaultValue,
         defined,
-        definedNotNull,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * Function for joining URLs in a manner that is aware of query strings and fragments.
@@ -20,6 +17,8 @@ define([
      * @param {String|Uri} first The base URL.
      * @param {String|Uri} second The URL path to join to the base URL.  If this URL is absolute, it is returned unmodified.
      * @param {Boolean} [appendSlash=true] The boolean determining whether there should be a forward slash between first and second.
+     *
+     * @return {String} The combined url
      * @private
      */
     function joinUrls(first, second, appendSlash) {
@@ -42,9 +41,19 @@ define([
             second = new Uri(second);
         }
 
+        // Don't try to join a data uri
+        if (first.scheme === 'data') {
+            return first.toString();
+        }
+
+        // Don't try to join a data uri
+        if (second.scheme === 'data') {
+            return second.toString();
+        }
+
         // Uri.isAbsolute returns false for a URL like '//foo.com'.  So if we have an authority but
         // not a scheme, add a scheme matching the page's scheme.
-        if (definedNotNull(second.authority) && !definedNotNull(second.scheme)) {
+        if (defined(second.authority) && !defined(second.scheme)) {
             if (typeof document !== 'undefined' && defined(document.location) && defined(document.location.href)) {
                 second.scheme = new Uri(document.location.href).scheme;
             } else {
@@ -60,13 +69,13 @@ define([
         }
 
         var url = '';
-        if (definedNotNull(baseUri.scheme)) {
+        if (defined(baseUri.scheme)) {
             url += baseUri.scheme + ':';
         }
-        if (definedNotNull(baseUri.authority)) {
+        if (defined(baseUri.authority)) {
             url += '//' + baseUri.authority;
 
-            if (baseUri.path !== '') {
+            if (baseUri.path !== '' && baseUri.path !== '/') {
                 url = url.replace(/\/?$/, '/');
                 baseUri.path = baseUri.path.replace(/^\/?/g, '');
             }
@@ -84,8 +93,8 @@ define([
         }
 
         // Combine the queries and fragments.
-        var hasFirstQuery = definedNotNull(first.query);
-        var hasSecondQuery = definedNotNull(second.query);
+        var hasFirstQuery = defined(first.query);
+        var hasSecondQuery = defined(second.query);
         if (hasFirstQuery && hasSecondQuery) {
             url += '?' + first.query + '&' + second.query;
         } else if (hasFirstQuery && !hasSecondQuery) {
@@ -94,8 +103,8 @@ define([
             url += '?' + second.query;
         }
 
-        var hasSecondFragment = definedNotNull(second.fragment);
-        if (definedNotNull(first.fragment) && !hasSecondFragment) {
+        var hasSecondFragment = defined(second.fragment);
+        if (defined(first.fragment) && !hasSecondFragment) {
             url += '#' + first.fragment;
         } else if (hasSecondFragment) {
             url += '#' + second.fragment;

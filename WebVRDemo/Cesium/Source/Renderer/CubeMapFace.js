@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defaultValue',
         '../Core/defineProperties',
@@ -9,7 +8,7 @@ define([
         defineProperties,
         DeveloperError,
         PixelDatatype) {
-    "use strict";
+    'use strict';
 
     /**
      * @private

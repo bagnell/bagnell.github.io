@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defined',
         '../Core/defineProperties',
@@ -13,7 +12,7 @@ define([
         Event,
         TimeIntervalCollection,
         Property) {
-    "use strict";
+    'use strict';
 
     /**
      * A {@link Property} which is defined by a {@link TimeIntervalCollection}, where the

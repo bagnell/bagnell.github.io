@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defaultValue',
         '../Core/defined',
@@ -19,7 +18,7 @@ define([
         PolylineFS,
         Appearance,
         Material) {
-    "use strict";
+    'use strict';
 
     var defaultVertexShaderSource = PolylineCommon + '\n' + PolylineMaterialAppearanceVS;
     var defaultFragmentShaderSource = PolylineFS;
@@ -38,7 +37,6 @@ define([
      * @param {RenderState} [options.renderState] Optional render state to override the default render state.
      *
      * @see {@link https://github.com/AnalyticalGraphicsInc/cesium/wiki/Fabric|Fabric}
-     * @demo {@link http://cesiumjs.org/Cesium/Apps/Sandcastle/index.html?src=Polyline%20Material.html|Cesium Sandcastle Polyline Material Appearance Demo}
      *
      * @example
      * var primitive = new Cesium.Primitive({
@@ -107,7 +105,11 @@ define([
          */
         vertexShaderSource : {
             get : function() {
-                return this._vertexShaderSource;
+                var vs = this._vertexShaderSource;
+                if (this.material.shaderSource.search(/varying\s+float\s+v_polylineAngle;/g) !== -1) {
+                    vs = '#define POLYLINE_DASH\n' + vs;
+                }
+                return vs;
             }
         },
 

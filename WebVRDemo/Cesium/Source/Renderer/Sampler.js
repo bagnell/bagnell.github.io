@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defaultValue',
         '../Core/defined',
@@ -15,7 +14,7 @@ define([
         TextureMagnificationFilter,
         TextureMinificationFilter,
         TextureWrap) {
-    "use strict";
+    'use strict';
 
     /**
      * @private

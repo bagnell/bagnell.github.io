@@ -1,18 +1,17 @@
-/*global define*/
 define([
         '../Core/BoundingRectangle',
         '../Core/Color',
         '../Core/defined',
         '../Core/destroyObject',
         '../Core/PixelFormat',
+        '../Core/WebGLConstants',
         '../Renderer/ClearCommand',
+        '../Renderer/DrawCommand',
         '../Renderer/Framebuffer',
         '../Renderer/PixelDatatype',
         '../Renderer/RenderState',
-        '../Renderer/ShaderProgram',
         '../Renderer/ShaderSource',
         '../Renderer/Texture',
-        '../Renderer/WebGLConstants',
         '../Shaders/AdjustTranslucentFS',
         '../Shaders/CompositeOITFS',
         './BlendEquation',
@@ -23,19 +22,19 @@ define([
         defined,
         destroyObject,
         PixelFormat,
+        WebGLConstants,
         ClearCommand,
+        DrawCommand,
         Framebuffer,
         PixelDatatype,
         RenderState,
-        ShaderProgram,
         ShaderSource,
         Texture,
-        WebGLConstants,
         AdjustTranslucentFS,
         CompositeOITFS,
         BlendEquation,
         BlendFunction) {
-    "use strict";
+    'use strict';
 
     /**
      * @private
@@ -80,8 +79,6 @@ define([
 
         this._translucentRenderStateCache = {};
         this._alphaRenderStateCache = {};
-        this._translucentShaderCache = {};
-        this._alphaShaderCache = {};
 
         this._compositeCommand = undefined;
         this._adjustTranslucentCommand = undefined;
@@ -89,6 +86,9 @@ define([
 
         this._viewport = new BoundingRectangle();
         this._rs = undefined;
+
+        this._useScissorTest = false;
+        this._scissorRectangle = undefined;
     }
 
     function destroyTextures(oit) {
@@ -111,19 +111,29 @@ define([
     function updateTextures(oit, context, width, height) {
         destroyTextures(oit);
 
+        // Use zeroed arraybuffer instead of null to initialize texture
+        // to workaround Firefox 50. https://github.com/AnalyticalGraphicsInc/cesium/pull/4762
+        var source = new Float32Array(width * height * 4);
+
         oit._accumulationTexture = new Texture({
             context : context,
-            width : width,
-            height : height,
             pixelFormat : PixelFormat.RGBA,
-            pixelDatatype : PixelDatatype.FLOAT
+            pixelDatatype : PixelDatatype.FLOAT,
+            source : {
+                arrayBufferView : source,
+                width : width,
+                height : height
+            }
         });
         oit._revealageTexture = new Texture({
             context : context,
-            width : width,
-            height : height,
             pixelFormat : PixelFormat.RGBA,
-            pixelDatatype : PixelDatatype.FLOAT
+            pixelDatatype : PixelDatatype.FLOAT,
+            source : {
+                arrayBufferView : source,
+                width : width,
+                height : height
+            }
         });
     }
 
@@ -192,7 +202,7 @@ define([
         return supported;
     }
 
-    OIT.prototype.update = function(context, framebuffer) {
+    OIT.prototype.update = function(context, passState, framebuffer) {
         if (!this.isSupported()) {
             return;
         }
@@ -304,9 +314,22 @@ define([
         this._viewport.width = width;
         this._viewport.height = height;
 
-        if (!defined(this._rs) || !BoundingRectangle.equals(this._viewport, this._rs.viewport)) {
+        var useScissorTest = !BoundingRectangle.equals(this._viewport, passState.viewport);
+        var updateScissor = useScissorTest !== this._useScissorTest;
+        this._useScissorTest = useScissorTest;
+
+        if (!BoundingRectangle.equals(this._scissorRectangle, passState.viewport)) {
+            this._scissorRectangle = BoundingRectangle.clone(passState.viewport, this._scissorRectangle);
+            updateScissor = true;
+        }
+
+        if (!defined(this._rs) || !BoundingRectangle.equals(this._viewport, this._rs.viewport) || updateScissor) {
             this._rs = RenderState.fromCache({
-                viewport : this._viewport
+                viewport : this._viewport,
+                scissorTest : {
+                    enabled : this._useScissorTest,
+                    rectangle : this._scissorRectangle
+                }
             });
         }
 
@@ -315,7 +338,7 @@ define([
         }
 
         if (this._adjustTranslucentCommand) {
-            this._adjustTranslucentCommand.renderstate = this._rs;
+            this._adjustTranslucentCommand.renderState = this._rs;
         }
 
         if (defined(this._adjustAlphaCommand)) {
@@ -399,9 +422,8 @@ define([
         '    float ai = czm_gl_FragColor.a;\n' +
         '    gl_FragColor = vec4(ai);\n';
 
-    function getTranslucentShaderProgram(context, shaderProgram, cache, source) {
-        var id = shaderProgram.id;
-        var shader = cache[id];
+    function getTranslucentShaderProgram(context, shaderProgram, keyword, source) {
+        var shader = context.shaderCache.getDerivedShaderProgram(shaderProgram, keyword);
         if (!defined(shader)) {
             var attributeLocations = shaderProgram._attributeLocations;
 
@@ -434,40 +456,93 @@ define([
                     source +
                     '}\n');
 
-            shader = ShaderProgram.fromCache({
-                context : context,
+            shader = context.shaderCache.createDerivedShaderProgram(shaderProgram, keyword, {
                 vertexShaderSource : shaderProgram.vertexShaderSource,
                 fragmentShaderSource : fs,
                 attributeLocations : attributeLocations
             });
-
-            cache[id] = shader;
         }
 
         return shader;
     }
 
-    function getTranslucentMRTShaderProgram(oit, context, shaderProgram) {
-        return getTranslucentShaderProgram(context, shaderProgram, oit._translucentShaderCache, mrtShaderSource);
+    function getTranslucentMRTShaderProgram(context, shaderProgram) {
+        return getTranslucentShaderProgram(context, shaderProgram, 'translucentMRT', mrtShaderSource);
     }
 
-    function getTranslucentColorShaderProgram(oit, context, shaderProgram) {
-        return getTranslucentShaderProgram(context, shaderProgram, oit._translucentShaderCache, colorShaderSource);
+    function getTranslucentColorShaderProgram(context, shaderProgram) {
+        return getTranslucentShaderProgram(context, shaderProgram, 'translucentMultipass', colorShaderSource);
     }
 
-    function getTranslucentAlphaShaderProgram(oit, context, shaderProgram) {
-        return getTranslucentShaderProgram(context, shaderProgram, oit._alphaShaderCache, alphaShaderSource);
+    function getTranslucentAlphaShaderProgram(context, shaderProgram) {
+        return getTranslucentShaderProgram(context, shaderProgram, 'alphaMultipass', alphaShaderSource);
     }
+
+    OIT.prototype.createDerivedCommands = function(command, context, result) {
+        if (!defined(result)) {
+            result = {};
+        }
+
+        if (this._translucentMRTSupport) {
+            var translucentShader;
+            var translucentRenderState;
+            if (defined(result.translucentCommand)) {
+                translucentShader = result.translucentCommand.shaderProgram;
+                translucentRenderState = result.translucentCommand.renderState;
+            }
+
+            result.translucentCommand = DrawCommand.shallowClone(command, result.translucentCommand);
+
+            if (!defined(translucentShader) || result.shaderProgramId !== command.shaderProgram.id) {
+                result.translucentCommand.shaderProgram = getTranslucentMRTShaderProgram(context, command.shaderProgram);
+                result.translucentCommand.renderState = getTranslucentMRTRenderState(this, context, command.renderState);
+                result.shaderProgramId = command.shaderProgram.id;
+            } else {
+                result.translucentCommand.shaderProgram = translucentShader;
+                result.translucentCommand.renderState = translucentRenderState;
+            }
+        } else {
+            var colorShader;
+            var colorRenderState;
+            var alphaShader;
+            var alphaRenderState;
+            if (defined(result.translucentCommand)) {
+                colorShader = result.translucentCommand.shaderProgram;
+                colorRenderState = result.translucentCommand.renderState;
+                alphaShader = result.alphaCommand.shaderProgram;
+                alphaRenderState = result.alphaCommand.renderState;
+            }
+
+            result.translucentCommand = DrawCommand.shallowClone(command, result.translucentCommand);
+            result.alphaCommand = DrawCommand.shallowClone(command, result.alphaCommand);
+
+            if (!defined(colorShader) || result.shaderProgramId !== command.shaderProgram.id) {
+                result.translucentCommand.shaderProgram = getTranslucentColorShaderProgram(context, command.shaderProgram);
+                result.translucentCommand.renderState = getTranslucentColorRenderState(this, context, command.renderState);
+                result.alphaCommand.shaderProgram = getTranslucentAlphaShaderProgram(context, command.shaderProgram);
+                result.alphaCommand.renderState = getTranslucentAlphaRenderState(this, context, command.renderState);
+                result.shaderProgramId = command.shaderProgram.id;
+            } else {
+                result.translucentCommand.shaderProgram = colorShader;
+                result.translucentCommand.renderState = colorRenderState;
+                result.alphaCommand.shaderProgram = alphaShader;
+                result.alphaCommand.renderState = alphaRenderState;
+            }
+        }
+
+        return result;
+    };
 
     function executeTranslucentCommandsSortedMultipass(oit, scene, executeFunction, passState, commands) {
         var command;
-        var renderState;
-        var shaderProgram;
+        var derivedCommand;
         var j;
 
         var context = scene.context;
         var framebuffer = passState.framebuffer;
         var length = commands.length;
+
+        var shadowsEnabled = scene.frameState.shadowHints.shadowsEnabled;
 
         passState.framebuffer = oit._adjustTranslucentFBO;
         oit._adjustTranslucentCommand.execute(context, passState);
@@ -479,29 +554,16 @@ define([
 
         for (j = 0; j < length; ++j) {
             command = commands[j];
-
-            if (!defined(command.oit) || command.shaderProgram.id !== command.oit.shaderProgramId) {
-                command.oit = {
-                    colorRenderState : getTranslucentColorRenderState(oit, context, command.renderState),
-                    alphaRenderState : getTranslucentAlphaRenderState(oit, context, command.renderState),
-                    colorShaderProgram : getTranslucentColorShaderProgram(oit, context, command.shaderProgram),
-                    alphaShaderProgram : getTranslucentAlphaShaderProgram(oit, context, command.shaderProgram),
-                    shaderProgramId : command.shaderProgram.id
-                };
-            }
-
-            renderState = command.oit.colorRenderState;
-            shaderProgram = command.oit.colorShaderProgram;
-            executeFunction(command, scene, context, passState, renderState, shaderProgram, debugFramebuffer);
+            derivedCommand = (shadowsEnabled && command.receiveShadows) ? command.derivedCommands.oit.shadows.translucentCommand : command.derivedCommands.oit.translucentCommand;
+            executeFunction(derivedCommand, scene, context, passState, debugFramebuffer);
         }
 
         passState.framebuffer = oit._alphaFBO;
 
         for (j = 0; j < length; ++j) {
             command = commands[j];
-            renderState = command.oit.alphaRenderState;
-            shaderProgram = command.oit.alphaShaderProgram;
-            executeFunction(command, scene, context, passState, renderState, shaderProgram, debugFramebuffer);
+            derivedCommand = (shadowsEnabled && command.receiveShadows) ? command.derivedCommands.oit.shadows.alphaCommand : command.derivedCommands.oit.alphaCommand;
+            executeFunction(derivedCommand, scene, context, passState, debugFramebuffer);
         }
 
         passState.framebuffer = framebuffer;
@@ -512,6 +574,8 @@ define([
         var framebuffer = passState.framebuffer;
         var length = commands.length;
 
+        var shadowsEnabled = scene.frameState.shadowHints.shadowsEnabled;
+
         passState.framebuffer = oit._adjustTranslucentFBO;
         oit._adjustTranslucentCommand.execute(context, passState);
 
@@ -520,18 +584,8 @@ define([
 
         for (var j = 0; j < length; ++j) {
             var command = commands[j];
-
-            if (!defined(command.oit) || command.shaderProgram.id !== command.oit.shaderProgramId) {
-                command.oit = {
-                    translucentRenderState : getTranslucentMRTRenderState(oit, context, command.renderState),
-                    translucentShaderProgram : getTranslucentMRTShaderProgram(oit, context, command.shaderProgram),
-                    shaderProgramId : command.shaderProgram.id
-                };
-            }
-
-            var renderState = command.oit.translucentRenderState;
-            var shaderProgram = command.oit.translucentShaderProgram;
-            executeFunction(command, scene, context, passState, renderState, shaderProgram, debugFramebuffer);
+            var derivedCommand = (shadowsEnabled && command.receiveShadows) ? command.derivedCommands.oit.shadows.translucentCommand : command.derivedCommands.oit.translucentCommand;
+            executeFunction(derivedCommand, scene, context, passState, debugFramebuffer);
         }
 
         passState.framebuffer = framebuffer;
@@ -591,23 +645,6 @@ define([
         if (defined(this._adjustAlphaCommand)) {
             this._adjustAlphaCommand.shaderProgram = this._adjustAlphaCommand.shaderProgram && this._adjustAlphaCommand.shaderProgram.destroy();
         }
-
-        var name;
-        var cache = this._translucentShaderCache;
-        for (name in cache) {
-            if (cache.hasOwnProperty(name) && defined(cache[name])) {
-                cache[name].destroy();
-            }
-        }
-        this._translucentShaderCache = {};
-
-        cache = this._alphaShaderCache;
-        for (name in cache) {
-            if (cache.hasOwnProperty(name) && defined(cache[name])) {
-                cache[name].destroy();
-            }
-        }
-        this._alphaShaderCache = {};
 
         return destroyObject(this);
     };

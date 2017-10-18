@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defined',
         '../Core/defineProperties',
@@ -9,7 +8,7 @@ define([
         defineProperties,
         DeveloperError,
         Event) {
-    "use strict";
+    'use strict';
 
     /**
      * A {@link Property} whose value is lazily evaluated by a callback function.

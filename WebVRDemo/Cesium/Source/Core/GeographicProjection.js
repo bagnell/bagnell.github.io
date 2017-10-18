@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './Cartesian3',
         './Cartographic',
@@ -15,7 +14,7 @@ define([
         defineProperties,
         DeveloperError,
         Ellipsoid) {
-    "use strict";
+    'use strict';
 
     /**
      * A simple map projection where longitude and latitude are linearly mapped to X and Y by multiplying

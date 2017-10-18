@@ -1,11 +1,10 @@
-/*global define*/
 define([
         './defaultValue',
         './defined'
     ], function(
         defaultValue,
         defined) {
-    "use strict";
+    'use strict';
 
     /**
      * Defines a heading angle, pitch angle, and range in a local frame.

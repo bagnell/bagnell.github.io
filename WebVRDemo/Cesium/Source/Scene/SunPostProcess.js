@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/BoundingRectangle',
         '../Core/Cartesian2',
@@ -47,7 +46,7 @@ define([
         BrightPass,
         GaussianBlur1D,
         PassThrough) {
-    "use strict";
+    'use strict';
 
     function SunPostProcess() {
         this._fbo = undefined;
@@ -215,7 +214,11 @@ define([
 
         var downSampleWidth = Math.pow(2.0, Math.ceil(Math.log(width) / Math.log(2)) - 2.0);
         var downSampleHeight = Math.pow(2.0, Math.ceil(Math.log(height) / Math.log(2)) - 2.0);
-        var downSampleSize = Math.max(downSampleWidth, downSampleHeight);
+
+        // The size computed above can be less than 1.0 if size < 4.0. This will probably
+        // never happen in practice, but does in the tests. Clamp to 1.0 to prevent WebGL
+        // errors in the tests.
+        var downSampleSize = Math.max(1.0, downSampleWidth, downSampleHeight);
 
         var downSampleViewport = downSampleViewportBoundingRectangle;
         downSampleViewport.width = downSampleSize;
@@ -359,7 +362,7 @@ define([
         scissorRectangle.height = Math.min(size.y, height);
 
         this._uCenter = Cartesian2.clone(sunPositionWC, this._uCenter);
-        this._uRadius = Math.max(size.x, size.y) * 0.5;
+        this._uRadius = Math.max(size.x, size.y) * 0.15;
 
         // create down sampled render state
         viewportTransformation = Matrix4.computeViewportTransformation(downSampleViewport, 0.0, 1.0, postProcessMatrix4Scratch);

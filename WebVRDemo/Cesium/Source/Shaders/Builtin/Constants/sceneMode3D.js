@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * The constant identifier for the 3D {@link SceneMode}\n\
  *\n\
@@ -12,5 +11,6 @@ define(function() {
  * @see czm_sceneModeColumbusView\n\
  * @see czm_sceneModeMorphing\n\
  */\n\
-const float czm_sceneMode3D = 3.0;";
+const float czm_sceneMode3D = 3.0;\n\
+";
 });

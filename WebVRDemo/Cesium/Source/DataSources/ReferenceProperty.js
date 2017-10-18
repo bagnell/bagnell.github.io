@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defined',
         '../Core/defineProperties',
@@ -13,7 +12,7 @@ define([
         Event,
         RuntimeError,
         Property) {
-    "use strict";
+    'use strict';
 
     function resolveEntity(that) {
         var entityIsResolved = true;

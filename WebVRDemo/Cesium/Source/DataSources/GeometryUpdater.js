@@ -1,11 +1,10 @@
-/*global define*/
 define([
         '../Core/defineProperties',
         '../Core/DeveloperError'
     ], function(
         defineProperties,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * Defines the interface for a geometry updater.  A GeometryUpdater maps

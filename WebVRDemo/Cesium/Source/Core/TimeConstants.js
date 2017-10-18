@@ -1,9 +1,8 @@
-/*global define*/
 define([
         './freezeObject'
     ], function(
         freezeObject) {
-    "use strict";
+    'use strict';
 
     /**
      * Constants for time conversions like those done by {@link JulianDate}.

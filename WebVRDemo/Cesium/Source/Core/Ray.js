@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './Cartesian3',
         './defaultValue',
@@ -9,7 +8,7 @@ define([
         defaultValue,
         defined,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * Represents a ray that extends infinitely from the provided origin in the provided direction.

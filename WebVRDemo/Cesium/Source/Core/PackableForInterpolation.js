@@ -1,9 +1,8 @@
-/*global define*/
 define([
         './DeveloperError'
     ], function(
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * Static interface for {@link Packable} types which are interpolated in a

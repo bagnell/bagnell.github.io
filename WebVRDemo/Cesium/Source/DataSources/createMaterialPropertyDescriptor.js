@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/Color',
         '../Core/DeveloperError',
@@ -11,7 +10,7 @@ define([
         ColorMaterialProperty,
         createPropertyDescriptor,
         ImageMaterialProperty) {
-    "use strict";
+    'use strict';
 
     function createMaterialProperty(value) {
         if (value instanceof Color) {

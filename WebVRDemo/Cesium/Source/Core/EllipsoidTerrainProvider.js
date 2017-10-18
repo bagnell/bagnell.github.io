@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../ThirdParty/when',
         './defaultValue',
@@ -19,7 +18,7 @@ define([
         GeographicTilingScheme,
         HeightmapTerrainData,
         TerrainProvider) {
-    "use strict";
+    'use strict';
 
     /**
      * A very simple {@link TerrainProvider} that produces geometry by tessellating an ellipsoidal
@@ -51,14 +50,6 @@ define([
         // Note: the 64 below does NOT need to match the actual vertex dimensions, because
         // the ellipsoid is significantly smoother than actual terrain.
         this._levelZeroMaximumGeometricError = TerrainProvider.getEstimatedLevelZeroGeometricErrorForAHeightmap(this._tilingScheme.ellipsoid, 64, this._tilingScheme.getNumberOfXTilesAtLevel(0));
-
-        var width = 16;
-        var height = 16;
-        this._terrainData = new HeightmapTerrainData({
-            buffer : new Uint8Array(width * height),
-            width : 16,
-            height : 16
-        });
 
         this._errorEvent = new Event();
         this._readyPromise = when.resolve(true);
@@ -160,15 +151,20 @@ define([
      * @param {Number} x The X coordinate of the tile for which to request geometry.
      * @param {Number} y The Y coordinate of the tile for which to request geometry.
      * @param {Number} level The level of the tile for which to request geometry.
-     * @param {Boolean} [throttleRequests=true] True if the number of simultaneous requests should be limited,
-     *                  or false if the request should be initiated regardless of the number of requests
-     *                  already in progress.
+     * @param {Request} [request] The request object. Intended for internal use only.
+     *
      * @returns {Promise.<TerrainData>|undefined} A promise for the requested geometry.  If this method
      *          returns undefined instead of a promise, it is an indication that too many requests are already
      *          pending and the request will be retried later.
      */
-    EllipsoidTerrainProvider.prototype.requestTileGeometry = function(x, y, level, throttleRequests) {
-        return this._terrainData;
+    EllipsoidTerrainProvider.prototype.requestTileGeometry = function(x, y, level, request) {
+        var width = 16;
+        var height = 16;
+        return new HeightmapTerrainData({
+            buffer : new Uint8Array(width * height),
+            width : width,
+            height : height
+        });
     };
 
     /**

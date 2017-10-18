@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/Ellipsoid',
         '../Core/HeightmapTessellator',
@@ -9,7 +8,7 @@ define([
         HeightmapTessellator,
         Rectangle,
         createTaskProcessorWorker) {
-    "use strict";
+    'use strict';
 
     function createVerticesFromHeightmap(parameters, transferableObjects) {
         var arrayWidth = parameters.width;

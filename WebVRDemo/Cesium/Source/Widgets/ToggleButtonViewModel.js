@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defaultValue',
         '../Core/defined',
@@ -11,7 +10,7 @@ define([
         defineProperties,
         DeveloperError,
         knockout) {
-    "use strict";
+    'use strict';
 
     /**
      * A view model which exposes the properties of a toggle button.

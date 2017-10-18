@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * Used as input to every material's czm_getMaterial function.\n\
  *\n\
@@ -23,5 +22,6 @@ struct czm_materialInput\n\
     vec3 normalEC;\n\
     mat3 tangentToEyeMatrix;\n\
     vec3 positionToEyeEC;\n\
-};";
+};\n\
+";
 });

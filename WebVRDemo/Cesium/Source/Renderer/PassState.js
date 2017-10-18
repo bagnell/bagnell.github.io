@@ -1,9 +1,5 @@
-/*global define*/
-define([
-        '../Core/BoundingRectangle'
-    ], function(
-        BoundingRectangle) {
-    "use strict";
+define([], function() {
+    'use strict';
 
     /**
      * The state for a particular rendering pass.  This is used to supplement the state

@@ -1,11 +1,10 @@
-/*global define*/
 define([
         '../ThirdParty/Tween',
         './freezeObject'
     ], function(
         Tween,
         freezeObject) {
-    "use strict";
+    'use strict';
 
     /**
      * Easing functions for use with {@link TweenCollection}.  These function are from

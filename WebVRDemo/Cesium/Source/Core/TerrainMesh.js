@@ -1,9 +1,8 @@
-/*global define*/
 define([
-        '../Core/defaultValue'
+        './defaultValue'
     ], function(
         defaultValue) {
-    "use strict";
+    'use strict';
 
     /**
       * A mesh plus related metadata for a single tile of terrain.  Instances of this type are
@@ -27,10 +26,11 @@ define([
       * @param {Number} [vertexStride=6] The number of components in each vertex.
       * @param {OrientedBoundingBox} [orientedBoundingBox] A bounding box that completely contains the tile.
       * @param {TerrainEncoding} encoding Information used to decode the mesh.
+      * @param {Number} exaggeration The amount that this mesh was exaggerated.
       *
       * @private
       */
-    function TerrainMesh(center, vertices, indices, minimumHeight, maximumHeight, boundingSphere3D, occludeePointInScaledSpace, vertexStride, orientedBoundingBox, encoding) {
+    function TerrainMesh(center, vertices, indices, minimumHeight, maximumHeight, boundingSphere3D, occludeePointInScaledSpace, vertexStride, orientedBoundingBox, encoding, exaggeration) {
         /**
          * The center of the tile.  Vertex positions are specified relative to this center.
          * @type {Cartesian3}
@@ -98,6 +98,12 @@ define([
          * @type {TerrainEncoding}
          */
         this.encoding = encoding;
+
+        /**
+         * The amount that this mesh was exaggerated.
+         * @type {Number}
+         */
+        this.exaggeration = exaggeration;
     }
 
     return TerrainMesh;

@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * A built-in GLSL floating-point constant for <code>pi/2</code>.\n\
  *\n\
@@ -17,5 +16,6 @@ define(function() {
  * // Example\n\
  * float pi = 2.0 * czm_piOverTwo;\n\
  */\n\
-const float czm_piOverTwo = 1.5707963267948966;";
+const float czm_piOverTwo = 1.5707963267948966;\n\
+";
 });

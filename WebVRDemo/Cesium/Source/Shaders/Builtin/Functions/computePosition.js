@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * Returns a position in model coordinates relative to eye taking into\n\
  * account the current scene mode: 3D, 2D, or Columbus view.\n\

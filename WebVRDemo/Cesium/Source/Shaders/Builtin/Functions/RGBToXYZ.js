@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * Converts an RGB color to CIE Yxy.\n\
  * <p>The conversion is described in\n\

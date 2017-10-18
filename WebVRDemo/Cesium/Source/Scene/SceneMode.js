@@ -1,9 +1,8 @@
-/*global define*/
 define([
         '../Core/freezeObject'
     ], function(
         freezeObject) {
-    "use strict";
+    'use strict';
 
     /**
      * Indicates if the scene is viewed in 3D, 2D, or 2.5D Columbus view.

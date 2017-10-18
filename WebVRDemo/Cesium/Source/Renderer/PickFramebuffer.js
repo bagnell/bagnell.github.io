@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/BoundingRectangle',
         '../Core/Color',
@@ -21,7 +20,7 @@ define([
         Renderbuffer,
         RenderbufferFormat,
         Texture) {
-    "use strict";
+    'use strict';
 
     /**
      * @private

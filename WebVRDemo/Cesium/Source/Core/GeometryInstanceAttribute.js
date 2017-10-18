@@ -1,4 +1,3 @@
-/*global define*/
 define([
         './defaultValue',
         './defined',
@@ -7,7 +6,7 @@ define([
         defaultValue,
         defined,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * Values and type information for per-instance geometry attributes.
@@ -41,9 +40,10 @@ define([
      *     })
      *   }
      * });
-     * 
+     *
      * @see ColorGeometryInstanceAttribute
      * @see ShowGeometryInstanceAttribute
+     * @see DistanceDisplayConditionGeometryInstanceAttribute
      */
     function GeometryInstanceAttribute(options) {
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);

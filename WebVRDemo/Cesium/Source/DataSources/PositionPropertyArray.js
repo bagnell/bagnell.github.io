@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defaultValue',
         '../Core/defined',
@@ -17,7 +16,7 @@ define([
         EventHelper,
         ReferenceFrame,
         Property) {
-    "use strict";
+    'use strict';
 
     /**
      * A {@link PositionProperty} whose value is an array whose items are the computed value
@@ -27,6 +26,7 @@ define([
      * @constructor
      *
      * @param {Property[]} [value] An array of Property instances.
+     * @param {ReferenceFrame} [referenceFrame=ReferenceFrame.FIXED] The reference frame in which the position is defined.
      */
     function PositionPropertyArray(value, referenceFrame) {
         this._value = undefined;

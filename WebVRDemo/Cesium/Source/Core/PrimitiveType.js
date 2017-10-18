@@ -1,11 +1,10 @@
-/*global define*/
 define([
-        '../Renderer/WebGLConstants',
-        './freezeObject'
+        './freezeObject',
+        './WebGLConstants'
     ], function(
-        WebGLConstants,
-        freezeObject) {
-    "use strict";
+        freezeObject,
+        WebGLConstants) {
+    'use strict';
 
     /**
      * The type of a geometric primitive, i.e., points, lines, and triangles.

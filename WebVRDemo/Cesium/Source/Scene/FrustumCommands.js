@@ -1,11 +1,10 @@
-/*global define*/
 define([
         '../Core/defaultValue',
-        './Pass'
+        '../Renderer/Pass'
     ], function(
         defaultValue,
         Pass) {
-    "use strict";
+    'use strict';
 
     /**
      * Defines a list of commands whose geometry are bound by near and far distances from the camera.

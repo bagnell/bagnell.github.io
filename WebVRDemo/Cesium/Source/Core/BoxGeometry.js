@@ -1,11 +1,10 @@
-/*global define*/
 define([
         './BoundingSphere',
         './Cartesian3',
+        './Check',
         './ComponentDatatype',
         './defaultValue',
         './defined',
-        './DeveloperError',
         './Geometry',
         './GeometryAttribute',
         './GeometryAttributes',
@@ -14,16 +13,16 @@ define([
     ], function(
         BoundingSphere,
         Cartesian3,
+        Check,
         ComponentDatatype,
         defaultValue,
         defined,
-        DeveloperError,
         Geometry,
         GeometryAttribute,
         GeometryAttributes,
         PrimitiveType,
         VertexFormat) {
-    "use strict";
+    'use strict';
 
     var diffScratch = new Cartesian3();
 
@@ -59,12 +58,8 @@ define([
         var max = options.maximum;
 
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(min)) {
-            throw new DeveloperError('options.minimum is required.');
-        }
-        if (!defined(max)) {
-            throw new DeveloperError('options.maximum is required');
-        }
+        Check.typeOf.object('min', min);
+        Check.typeOf.object('max', max);
         //>>includeEnd('debug');
 
         var vertexFormat = defaultValue(options.vertexFormat, VertexFormat.DEFAULT);
@@ -85,14 +80,14 @@ define([
      *
      * @exception {DeveloperError} All dimensions components must be greater than or equal to zero.
      *
-     * 
+     *
      * @example
      * var box = Cesium.BoxGeometry.fromDimensions({
      *   vertexFormat : Cesium.VertexFormat.POSITION_ONLY,
      *   dimensions : new Cesium.Cartesian3(500000.0, 500000.0, 500000.0)
      * });
      * var geometry = Cesium.BoxGeometry.createGeometry(box);
-     * 
+     *
      * @see BoxGeometry.createGeometry
      */
     BoxGeometry.fromDimensions = function(options) {
@@ -100,12 +95,10 @@ define([
         var dimensions = options.dimensions;
 
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(dimensions)) {
-            throw new DeveloperError('options.dimensions is required.');
-        }
-        if (dimensions.x < 0 || dimensions.y < 0 || dimensions.z < 0) {
-            throw new DeveloperError('All dimensions components must be greater than or equal to zero.');
-        }
+        Check.typeOf.object('dimensions', dimensions);
+        Check.typeOf.number.greaterThanOrEquals('dimensions.x', dimensions.x, 0);
+        Check.typeOf.number.greaterThanOrEquals('dimensions.y', dimensions.y, 0);
+        Check.typeOf.number.greaterThanOrEquals('dimensions.z', dimensions.z, 0);
         //>>includeEnd('debug');
 
         var corner = Cartesian3.multiplyByScalar(dimensions, 0.5, new Cartesian3());
@@ -124,7 +117,7 @@ define([
      * @returns {BoxGeometry}
      *
      *
-     * 
+     *
      * @example
      * var aabb = Cesium.AxisAlignedBoundingBox.fromPoints(Cesium.Cartesian3.fromDegreesArray([
      *      -72.0, 40.0,
@@ -133,49 +126,14 @@ define([
      *      -70.0, 30.0,
      *      -68.0, 40.0
      * ]));
-     * var box = Cesium.BoxGeometry.fromAxisAlignedBoundingBox({
-     *      boundingBox: aabb
-     * });
-     * 
+     * var box = Cesium.BoxGeometry.fromAxisAlignedBoundingBox(aabb);
+     *
      * @see BoxGeometry.createGeometry
      */
     BoxGeometry.fromAxisAlignedBoundingBox = function (boundingBox) {
-        if (!defined(boundingBox)) {
-            throw new DeveloperError('boundingBox is required.');
-        }
-
-        return new BoxGeometry({
-            minimum: boundingBox.minimum,
-            maximum: boundingBox.maximum
-        });
-    };
-
-    /**
-     * Creates a cube from the dimensions of an AxisAlignedBoundingBox.
-     *
-     * @param {AxisAlignedBoundingBox} boundingBox A description of the AxisAlignedBoundingBox.
-     * @returns {BoxGeometry}
-     *
-     *
-     * 
-     * @example
-     * var aabb = Cesium.AxisAlignedBoundingBox.fromPoints(Cesium.Cartesian3.fromDegreesArray([
-     *      -72.0, 40.0,
-     *      -70.0, 35.0,
-     *      -75.0, 30.0,
-     *      -70.0, 30.0,
-     *      -68.0, 40.0
-     * ]));
-     * var box = Cesium.BoxGeometry.fromAxisAlignedBoundingBox({
-     *      boundingBox: aabb
-     * });
-     * 
-     * @see BoxGeometry.createGeometry
-     */
-    BoxGeometry.fromAxisAlignedBoundingBox = function (boundingBox) {
-        if (!defined(boundingBox)) {
-            throw new DeveloperError('boundingBox is required.');
-        }
+        //>>includeStart('debug', pragmas.debug);
+        Check.typeOf.object('boundingBox', boundingBox);
+        //>>includeEnd('debug');
 
         return new BoxGeometry({
             minimum : boundingBox.minimum,
@@ -195,15 +153,13 @@ define([
      * @param {BoxGeometry} value The value to pack.
      * @param {Number[]} array The array to pack into.
      * @param {Number} [startingIndex=0] The index into the array at which to start packing the elements.
+     *
+     * @returns {Number[]} The array that was packed into
      */
     BoxGeometry.pack = function(value, array, startingIndex) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(value)) {
-            throw new DeveloperError('value is required');
-        }
-        if (!defined(array)) {
-            throw new DeveloperError('array is required');
-        }
+        Check.typeOf.object('value', value);
+        Check.defined('array', array);
         //>>includeEnd('debug');
 
         startingIndex = defaultValue(startingIndex, 0);
@@ -211,6 +167,8 @@ define([
         Cartesian3.pack(value._minimum, array, startingIndex);
         Cartesian3.pack(value._maximum, array, startingIndex + Cartesian3.packedLength);
         VertexFormat.pack(value._vertexFormat, array, startingIndex + 2 * Cartesian3.packedLength);
+
+        return array;
     };
 
     var scratchMin = new Cartesian3();
@@ -232,9 +190,7 @@ define([
      */
     BoxGeometry.unpack = function(array, startingIndex, result) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(array)) {
-            throw new DeveloperError('array is required');
-        }
+        Check.defined('array', array);
         //>>includeEnd('debug');
 
         startingIndex = defaultValue(startingIndex, 0);
@@ -258,19 +214,23 @@ define([
      * Computes the geometric representation of a box, including its vertices, indices, and a bounding sphere.
      *
      * @param {BoxGeometry} boxGeometry A description of the box.
-     * @returns {Geometry} The computed vertices and indices.
+     * @returns {Geometry|undefined} The computed vertices and indices.
      */
     BoxGeometry.createGeometry = function(boxGeometry) {
         var min = boxGeometry._minimum;
         var max = boxGeometry._maximum;
         var vertexFormat = boxGeometry._vertexFormat;
 
+        if (Cartesian3.equals(min, max)) {
+            return;
+        }
+
         var attributes = new GeometryAttributes();
         var indices;
         var positions;
 
         if (vertexFormat.position &&
-                (vertexFormat.st || vertexFormat.normal || vertexFormat.binormal || vertexFormat.tangent)) {
+                (vertexFormat.st || vertexFormat.normal || vertexFormat.tangent || vertexFormat.bitangent)) {
             if (vertexFormat.position) {
                 // 8 corner points.  Duplicated 3 times each for each incident edge/face.
                 positions = new Float64Array(6 * 4 * 3);
@@ -624,97 +584,97 @@ define([
                 });
             }
 
-            if (vertexFormat.binormal) {
-                var binormals = new Float32Array(6 * 4 * 3);
+            if (vertexFormat.bitangent) {
+                var bitangents = new Float32Array(6 * 4 * 3);
 
                 // +z face
-                binormals[0] = 0.0;
-                binormals[1] = 1.0;
-                binormals[2] = 0.0;
-                binormals[3] = 0.0;
-                binormals[4] = 1.0;
-                binormals[5] = 0.0;
-                binormals[6] = 0.0;
-                binormals[7] = 1.0;
-                binormals[8] = 0.0;
-                binormals[9] = 0.0;
-                binormals[10] = 1.0;
-                binormals[11] = 0.0;
+                bitangents[0] = 0.0;
+                bitangents[1] = 1.0;
+                bitangents[2] = 0.0;
+                bitangents[3] = 0.0;
+                bitangents[4] = 1.0;
+                bitangents[5] = 0.0;
+                bitangents[6] = 0.0;
+                bitangents[7] = 1.0;
+                bitangents[8] = 0.0;
+                bitangents[9] = 0.0;
+                bitangents[10] = 1.0;
+                bitangents[11] = 0.0;
 
                 // -z face
-                binormals[12] = 0.0;
-                binormals[13] = 1.0;
-                binormals[14] = 0.0;
-                binormals[15] = 0.0;
-                binormals[16] = 1.0;
-                binormals[17] = 0.0;
-                binormals[18] = 0.0;
-                binormals[19] = 1.0;
-                binormals[20] = 0.0;
-                binormals[21] = 0.0;
-                binormals[22] = 1.0;
-                binormals[23] = 0.0;
+                bitangents[12] = 0.0;
+                bitangents[13] = 1.0;
+                bitangents[14] = 0.0;
+                bitangents[15] = 0.0;
+                bitangents[16] = 1.0;
+                bitangents[17] = 0.0;
+                bitangents[18] = 0.0;
+                bitangents[19] = 1.0;
+                bitangents[20] = 0.0;
+                bitangents[21] = 0.0;
+                bitangents[22] = 1.0;
+                bitangents[23] = 0.0;
 
                 // +x face
-                binormals[24] = 0.0;
-                binormals[25] = 0.0;
-                binormals[26] = 1.0;
-                binormals[27] = 0.0;
-                binormals[28] = 0.0;
-                binormals[29] = 1.0;
-                binormals[30] = 0.0;
-                binormals[31] = 0.0;
-                binormals[32] = 1.0;
-                binormals[33] = 0.0;
-                binormals[34] = 0.0;
-                binormals[35] = 1.0;
+                bitangents[24] = 0.0;
+                bitangents[25] = 0.0;
+                bitangents[26] = 1.0;
+                bitangents[27] = 0.0;
+                bitangents[28] = 0.0;
+                bitangents[29] = 1.0;
+                bitangents[30] = 0.0;
+                bitangents[31] = 0.0;
+                bitangents[32] = 1.0;
+                bitangents[33] = 0.0;
+                bitangents[34] = 0.0;
+                bitangents[35] = 1.0;
 
                 // -x face
-                binormals[36] = 0.0;
-                binormals[37] = 0.0;
-                binormals[38] = 1.0;
-                binormals[39] = 0.0;
-                binormals[40] = 0.0;
-                binormals[41] = 1.0;
-                binormals[42] = 0.0;
-                binormals[43] = 0.0;
-                binormals[44] = 1.0;
-                binormals[45] = 0.0;
-                binormals[46] = 0.0;
-                binormals[47] = 1.0;
+                bitangents[36] = 0.0;
+                bitangents[37] = 0.0;
+                bitangents[38] = 1.0;
+                bitangents[39] = 0.0;
+                bitangents[40] = 0.0;
+                bitangents[41] = 1.0;
+                bitangents[42] = 0.0;
+                bitangents[43] = 0.0;
+                bitangents[44] = 1.0;
+                bitangents[45] = 0.0;
+                bitangents[46] = 0.0;
+                bitangents[47] = 1.0;
 
                 // +y face
-                binormals[48] = 0.0;
-                binormals[49] = 0.0;
-                binormals[50] = 1.0;
-                binormals[51] = 0.0;
-                binormals[52] = 0.0;
-                binormals[53] = 1.0;
-                binormals[54] = 0.0;
-                binormals[55] = 0.0;
-                binormals[56] = 1.0;
-                binormals[57] = 0.0;
-                binormals[58] = 0.0;
-                binormals[59] = 1.0;
+                bitangents[48] = 0.0;
+                bitangents[49] = 0.0;
+                bitangents[50] = 1.0;
+                bitangents[51] = 0.0;
+                bitangents[52] = 0.0;
+                bitangents[53] = 1.0;
+                bitangents[54] = 0.0;
+                bitangents[55] = 0.0;
+                bitangents[56] = 1.0;
+                bitangents[57] = 0.0;
+                bitangents[58] = 0.0;
+                bitangents[59] = 1.0;
 
                 // -y face
-                binormals[60] = 0.0;
-                binormals[61] = 0.0;
-                binormals[62] = 1.0;
-                binormals[63] = 0.0;
-                binormals[64] = 0.0;
-                binormals[65] = 1.0;
-                binormals[66] = 0.0;
-                binormals[67] = 0.0;
-                binormals[68] = 1.0;
-                binormals[69] = 0.0;
-                binormals[70] = 0.0;
-                binormals[71] = 1.0;
+                bitangents[60] = 0.0;
+                bitangents[61] = 0.0;
+                bitangents[62] = 1.0;
+                bitangents[63] = 0.0;
+                bitangents[64] = 0.0;
+                bitangents[65] = 1.0;
+                bitangents[66] = 0.0;
+                bitangents[67] = 0.0;
+                bitangents[68] = 1.0;
+                bitangents[69] = 0.0;
+                bitangents[70] = 0.0;
+                bitangents[71] = 1.0;
 
-                attributes.binormal = new GeometryAttribute({
+                attributes.bitangent = new GeometryAttribute({
                     componentDatatype : ComponentDatatype.FLOAT,
                     componentsPerAttribute : 3,
-                    values : binormals
+                    values : bitangents
                 });
             }
 

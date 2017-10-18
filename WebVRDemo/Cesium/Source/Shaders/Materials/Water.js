@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "// Thanks for the contribution Jonas\n\
 // http://29a.ch/2012/7/19/webgl-terrain-rendering-water-fog\n\
 \n\
@@ -57,5 +56,6 @@ czm_material czm_getMaterial(czm_materialInput materialInput)\n\
     material.shininess = 10.0;\n\
     \n\
     return material;\n\
-}";
+}\n\
+";
 });

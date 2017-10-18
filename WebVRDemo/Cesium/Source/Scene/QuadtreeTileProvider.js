@@ -1,11 +1,10 @@
-/*global define*/
 define([
         '../Core/defineProperties',
         '../Core/DeveloperError'
     ], function(
         defineProperties,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * Provides general quadtree tiles to be displayed on or near the surface of an ellipsoid.  It is intended to be
@@ -105,7 +104,7 @@ define([
      * Gets the maximum geometric error allowed in a tile at a given level, in meters.  This function should not be
      * called before {@link QuadtreeTileProvider#ready} returns true.
      *
-     * @see {QuadtreeTileProvider.computeDefaultLevelZeroMaximumGeometricError}
+     * @see QuadtreeTileProvider#computeDefaultLevelZeroMaximumGeometricError
      *
      * @memberof QuadtreeTileProvider
      * @function
@@ -205,7 +204,7 @@ define([
      *
      * @example
      * provider = provider && provider();
-     * 
+     *
      * @see QuadtreeTileProvider#isDestroyed
      */
     QuadtreeTileProvider.prototype.destroy = DeveloperError.throwInstantiationError;

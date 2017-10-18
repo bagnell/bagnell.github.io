@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/clone',
         '../Core/combine',
@@ -15,7 +14,7 @@ define([
         defineProperties,
         BlendingState,
         CullFace) {
-    "use strict";
+    'use strict';
 
     /**
      * An appearance defines the full GLSL vertex and fragment shaders and the

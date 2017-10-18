@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/**\n\
  * Translates a position (or any <code>vec3</code>) that was encoded with {@link EncodedCartesian3},\n\
  * and then provided to the shader as separate <code>high</code> and <code>low</code> bits to\n\

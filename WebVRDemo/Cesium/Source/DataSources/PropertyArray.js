@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defined',
         '../Core/defineProperties',
@@ -13,7 +12,7 @@ define([
         Event,
         EventHelper,
         Property) {
-    "use strict";
+    'use strict';
 
     /**
      * A {@link Property} whose value is an array whose items are the computed value

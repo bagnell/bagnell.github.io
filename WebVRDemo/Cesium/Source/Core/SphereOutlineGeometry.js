@@ -1,17 +1,16 @@
-/*global define*/
 define([
         './Cartesian3',
+        './Check',
         './defaultValue',
         './defined',
-        './DeveloperError',
         './EllipsoidOutlineGeometry'
     ], function(
         Cartesian3,
+        Check,
         defaultValue,
         defined,
-        DeveloperError,
         EllipsoidOutlineGeometry) {
-    "use strict";
+    'use strict';
 
     /**
      * A description of the outline of a sphere.
@@ -28,8 +27,6 @@ define([
      * @exception {DeveloperError} options.stackPartitions must be greater than or equal to one.
      * @exception {DeveloperError} options.slicePartitions must be greater than or equal to zero.
      * @exception {DeveloperError} options.subdivisions must be greater than or equal to zero.
-     *
-     * @demo {@link http://cesiumjs.org/Cesium/Apps/Sandcastle/index.html?src=Sphere%20Outline.html|Cesium Sandcastle Sphere Outline Demo}
      *
      * @example
      * var sphere = new Cesium.SphereOutlineGeometry({
@@ -65,15 +62,15 @@ define([
      * @param {SphereOutlineGeometry} value The value to pack.
      * @param {Number[]} array The array to pack into.
      * @param {Number} [startingIndex=0] The index into the array at which to start packing the elements.
+     *
+     * @returns {Number[]} The array that was packed into
      */
     SphereOutlineGeometry.pack = function(value, array, startingIndex) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(value)) {
-            throw new DeveloperError('value is required');
-        }
+        Check.typeOf.object('value', value);
         //>>includeEnd('debug');
 
-        EllipsoidOutlineGeometry.pack(value._ellipsoidGeometry, array, startingIndex);
+        return EllipsoidOutlineGeometry.pack(value._ellipsoidGeometry, array, startingIndex);
     };
 
     var scratchEllipsoidGeometry = new EllipsoidOutlineGeometry();

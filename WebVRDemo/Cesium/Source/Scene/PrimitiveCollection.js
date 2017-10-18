@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/createGuid',
         '../Core/defaultValue',
@@ -13,7 +12,7 @@ define([
         defineProperties,
         destroyObject,
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * A collection of primitives.  This is most often used with {@link Scene#primitives},
@@ -135,7 +134,7 @@ define([
      * @example
      * var billboards = scene.primitives.add(new Cesium.BillboardCollection());
      * scene.primitives.remove(p);  // Returns true
-     * 
+     *
      * @see PrimitiveCollection#destroyPrimitives
      */
     PrimitiveCollection.prototype.remove = function(primitive) {
@@ -337,7 +336,7 @@ define([
      *   var p = primitives.get(i);
      *   p.show = !p.show;
      * }
-     * 
+     *
      * @see PrimitiveCollection#length
      */
     PrimitiveCollection.prototype.get = function(index) {
@@ -400,7 +399,7 @@ define([
      *
      * @example
      * primitives = primitives && primitives.destroy();
-     * 
+     *
      * @see PrimitiveCollection#isDestroyed
      */
     PrimitiveCollection.prototype.destroy = function() {

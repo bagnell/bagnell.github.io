@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defaultValue',
         '../Core/defined',
@@ -27,7 +26,7 @@ define([
         TexturedMaterialAppearanceVS,
         Appearance,
         Material) {
-    "use strict";
+    'use strict';
 
     /**
      * An appearance for arbitrary geometry (as opposed to {@link EllipsoidSurfaceAppearance}, for example)
@@ -311,7 +310,7 @@ define([
         /**
          * All materials, including those that work in tangent space, are supported.
          * This requires <code>position</code>, <code>normal</code>, <code>st</code>,
-         * <code>binormal</code>, and <code>tangent</code> vertex attributes.
+         * <code>tangent</code>, and <code>bitangent</code> vertex attributes.
          *
          * @constant
          */

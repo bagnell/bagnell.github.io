@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../../Core/defined',
         '../../Core/defineProperties',
@@ -11,7 +10,7 @@ define([
         DeveloperError,
         knockout,
         createCommand) {
-    "use strict";
+    'use strict';
 
     /**
      * A view model that represents each item in the {@link BaseLayerPicker}.

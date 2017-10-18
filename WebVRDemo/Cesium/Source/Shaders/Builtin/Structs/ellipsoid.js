@@ -1,7 +1,6 @@
 //This file is automatically rebuilt by the Cesium build process.
-/*global define*/
 define(function() {
-    "use strict";
+    'use strict';
     return "/** DOC_TBA\n\
  *\n\
  * @name czm_ellipsoid\n\
@@ -13,5 +12,6 @@ struct czm_ellipsoid\n\
     vec3 radii;\n\
     vec3 inverseRadii;\n\
     vec3 inverseRadiiSquared;\n\
-};";
+};\n\
+";
 });

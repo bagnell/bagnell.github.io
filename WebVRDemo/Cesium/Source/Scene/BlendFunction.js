@@ -1,11 +1,10 @@
-/*global define*/
 define([
         '../Core/freezeObject',
-        '../Renderer/WebGLConstants'
+        '../Core/WebGLConstants'
     ], function(
         freezeObject,
         WebGLConstants) {
-    "use strict";
+    'use strict';
 
     /**
      * Determines how blending factors are computed.

@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/defaultValue',
         '../Core/defined',
@@ -15,7 +14,7 @@ define([
         DeveloperError,
         Event,
         when) {
-    "use strict";
+    'use strict';
 
     /**
      * A collection of {@link DataSource} instances.
@@ -166,6 +165,7 @@ define([
      * Gets a data source by index from the collection.
      *
      * @param {Number} index the index to retrieve.
+     * @returns {DataSource} The data source at the specified index.
      */
     DataSourceCollection.prototype.get = function(index) {
         //>>includeStart('debug', pragmas.debug);
@@ -204,7 +204,7 @@ define([
      *
      * @example
      * dataSourceCollection = dataSourceCollection && dataSourceCollection.destroy();
-     * 
+     *
      * @see DataSourceCollection#isDestroyed
      */
     DataSourceCollection.prototype.destroy = function() {

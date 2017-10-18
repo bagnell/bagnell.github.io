@@ -1,9 +1,8 @@
-/*global define*/
 define([
         '../Core/DeveloperError'
     ], function(
         DeveloperError) {
-    "use strict";
+    'use strict';
 
     /**
      * If element is a string, look up the element in the DOM by ID.  Otherwise return element.

@@ -1,4 +1,3 @@
-/*global define*/
 define([
         '../Core/clone',
         '../Core/Color',
@@ -9,13 +8,12 @@ define([
         '../Core/defineProperties',
         '../Core/destroyObject',
         '../Core/DeveloperError',
-        '../Core/FeatureDetection',
         '../Core/Geometry',
         '../Core/GeometryAttribute',
-        '../Core/Math',
         '../Core/Matrix4',
         '../Core/PrimitiveType',
         '../Core/RuntimeError',
+        '../Core/WebGLConstants',
         '../Shaders/ViewportQuadVS',
         './BufferUsage',
         './ClearCommand',
@@ -24,15 +22,12 @@ define([
         './DrawCommand',
         './PassState',
         './PickFramebuffer',
-        './PixelDatatype',
-        './RenderbufferFormat',
         './RenderState',
         './ShaderCache',
         './ShaderProgram',
         './Texture',
         './UniformState',
-        './VertexArray',
-        './WebGLConstants'
+        './VertexArray'
     ], function(
         clone,
         Color,
@@ -43,13 +38,12 @@ define([
         defineProperties,
         destroyObject,
         DeveloperError,
-        FeatureDetection,
         Geometry,
         GeometryAttribute,
-        CesiumMath,
         Matrix4,
         PrimitiveType,
         RuntimeError,
+        WebGLConstants,
         ViewportQuadVS,
         BufferUsage,
         ClearCommand,
@@ -58,16 +52,13 @@ define([
         DrawCommand,
         PassState,
         PickFramebuffer,
-        PixelDatatype,
-        RenderbufferFormat,
         RenderState,
         ShaderCache,
         ShaderProgram,
         Texture,
         UniformState,
-        VertexArray,
-        WebGLConstants) {
-    "use strict";
+        VertexArray) {
+    'use strict';
     /*global WebGLRenderingContext*/
     /*global WebGL2RenderingContext*/
 
@@ -117,50 +108,50 @@ define([
         }
     }
 
-    function makeGetterSetter(gl, propertyName, logFunc) {
+    function makeGetterSetter(gl, propertyName, logFunction) {
         return {
             get : function() {
                 var value = gl[propertyName];
-                logFunc(gl, 'get: ' + propertyName, value);
+                logFunction(gl, 'get: ' + propertyName, value);
                 return gl[propertyName];
             },
             set : function(value) {
                 gl[propertyName] = value;
-                logFunc(gl, 'set: ' + propertyName, value);
+                logFunction(gl, 'set: ' + propertyName, value);
             }
         };
     }
 
-    function wrapGL(gl, logFunc) {
-        if (!logFunc) {
+    function wrapGL(gl, logFunction) {
+        if (!defined(logFunction)) {
             return gl;
         }
 
         function wrapFunction(property) {
             return function() {
                 var result = property.apply(gl, arguments);
-                logFunc(gl, property, arguments);
+                logFunction(gl, property, arguments);
                 return result;
             };
         }
 
         var glWrapper = {};
 
-        /*jslint forin: true*/
-        /*jshint forin: false*/
-        // JSLint normally demands that a for..in loop must directly contain an if,
+        // JavaScript linters normally demand that a for..in loop must directly contain an if,
         // but in our loop below, we actually intend to iterate all properties, including
         // those in the prototype.
-        for ( var propertyName in gl) {
+        /*eslint-disable guard-for-in*/
+        for (var propertyName in gl) {
             var property = gl[propertyName];
 
             // wrap any functions we encounter, otherwise just copy the property to the wrapper.
-            if (typeof property === 'function') {
+            if (property instanceof Function) {
                 glWrapper[propertyName] = wrapFunction(property);
             } else {
-                Object.defineProperty(glWrapper, propertyName, makeGetterSetter(gl, propertyName, logFunc));
+                Object.defineProperty(glWrapper, propertyName, makeGetterSetter(gl, propertyName, logFunction));
             }
         }
+        /*eslint-enable guard-for-in*/
 
         return glWrapper;
     }
@@ -201,26 +192,35 @@ define([
 
         // Override select WebGL defaults
         webglOptions.alpha = defaultValue(webglOptions.alpha, false); // WebGL default is true
+        webglOptions.stencil = defaultValue(webglOptions.stencil, true); // WebGL default is false
 
         var defaultToWebgl2 = false;
-        var webgl2Supported = (typeof WebGL2RenderingContext !== 'undefined');
+        var requestWebgl2 = defaultToWebgl2 && (typeof WebGL2RenderingContext !== 'undefined');
         var webgl2 = false;
-        var glContext;
 
-        if (defaultToWebgl2 && webgl2Supported) {
-            glContext = canvas.getContext('webgl2', webglOptions) || canvas.getContext('experimental-webgl2', webglOptions) || undefined;
-            if (defined(glContext)) {
-                webgl2 = true;
+        var glContext;
+        var getWebGLStub = options.getWebGLStub;
+
+        if (!defined(getWebGLStub)) {
+            if (requestWebgl2) {
+                glContext = canvas.getContext('webgl2', webglOptions) || canvas.getContext('experimental-webgl2', webglOptions) || undefined;
+                if (defined(glContext)) {
+                    webgl2 = true;
+                }
             }
-        }
-        if (!defined(glContext)) {
-            glContext = canvas.getContext('webgl', webglOptions) || canvas.getContext('experimental-webgl', webglOptions) || undefined;
-        }
-        if (!defined(glContext)) {
-            throw new RuntimeError('The browser supports WebGL, but initialization failed.');
+            if (!defined(glContext)) {
+                glContext = canvas.getContext('webgl', webglOptions) || canvas.getContext('experimental-webgl', webglOptions) || undefined;
+            }
+            if (!defined(glContext)) {
+                throw new RuntimeError('The browser supports WebGL, but initialization failed.');
+            }
+        } else {
+            // Use WebGL stub when requested for unit tests
+            glContext = getWebGLStub(canvas, webglOptions);
         }
 
         this._originalGLContext = glContext;
+        this._gl = glContext;
         this._webgl2 = webgl2;
         this._id = createGuid();
 
@@ -233,13 +233,8 @@ define([
 
         this._shaderCache = new ShaderCache(this);
 
-        var gl = this._gl = this._originalGLContext;
+        var gl = glContext;
 
-        this._redBits = gl.getParameter(gl.RED_BITS);
-        this._greenBits = gl.getParameter(gl.GREEN_BITS);
-        this._blueBits = gl.getParameter(gl.BLUE_BITS);
-        this._alphaBits = gl.getParameter(gl.ALPHA_BITS);
-        this._depthBits = gl.getParameter(gl.DEPTH_BITS);
         this._stencilBits = gl.getParameter(gl.STENCIL_BITS);
 
         ContextLimits._maximumCombinedTextureImageUnits = gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS); // min: 8
@@ -274,11 +269,18 @@ define([
 
         // Query and initialize extensions
         this._standardDerivatives = !!getExtension(gl, ['OES_standard_derivatives']);
+        this._blendMinmax = !!getExtension(gl, ['EXT_blend_minmax']);
         this._elementIndexUint = !!getExtension(gl, ['OES_element_index_uint']);
         this._depthTexture = !!getExtension(gl, ['WEBGL_depth_texture', 'WEBKIT_WEBGL_depth_texture']);
         this._textureFloat = !!getExtension(gl, ['OES_texture_float']);
         this._fragDepth = !!getExtension(gl, ['EXT_frag_depth']);
         this._debugShaders = getExtension(gl, ['WEBGL_debug_shaders']);
+
+        this._colorBufferFloat = this._webgl2 && !!getExtension(gl, ['EXT_color_buffer_float']);
+
+        this._s3tc = !!getExtension(gl, ['WEBGL_compressed_texture_s3tc', 'MOZ_WEBGL_compressed_texture_s3tc', 'WEBKIT_WEBGL_compressed_texture_s3tc']);
+        this._pvrtc = !!getExtension(gl, ['WEBGL_compressed_texture_pvrtc', 'WEBKIT_WEBGL_compressed_texture_pvrtc']);
+        this._etc1 = !!getExtension(gl, ['WEBGL_compressed_texture_etc1']);
 
         var textureFilterAnisotropic = options.allowTextureFilterAnisotropic ? getExtension(gl, ['EXT_texture_filter_anisotropic', 'WEBKIT_EXT_texture_filter_anisotropic']) : undefined;
         this._textureFilterAnisotropic = textureFilterAnisotropic;
@@ -348,10 +350,9 @@ define([
         ContextLimits._maximumDrawBuffers = this.drawBuffers ? gl.getParameter(WebGLConstants.MAX_DRAW_BUFFERS) : 1;
         ContextLimits._maximumColorAttachments = this.drawBuffers ? gl.getParameter(WebGLConstants.MAX_COLOR_ATTACHMENTS) : 1;
 
-        var cc = gl.getParameter(gl.COLOR_CLEAR_VALUE);
-        this._clearColor = new Color(cc[0], cc[1], cc[2], cc[3]);
-        this._clearDepth = gl.getParameter(gl.DEPTH_CLEAR_VALUE);
-        this._clearStencil = gl.getParameter(gl.STENCIL_CLEAR_VALUE);
+        this._clearColor = new Color(0.0, 0.0, 0.0, 0.0);
+        this._clearDepth = 1.0;
+        this._clearStencil = 0;
 
         var us = new UniformState();
         var ps = new PassState(this);
@@ -406,7 +407,6 @@ define([
          */
         this.cache = {};
 
-
         RenderState.apply(gl, rs, ps);
     }
 
@@ -440,70 +440,6 @@ define([
         },
 
         /**
-         * The number of red bits per component in the default framebuffer's color buffer.  The minimum is eight.
-         * @memberof Context.prototype
-         * @type {Number}
-         * @see {@link https://www.khronos.org/opengles/sdk/docs/man/xhtml/glGet.xml|glGet} with <code>RED_BITS</code>.
-         */
-        redBits : {
-            get : function() {
-                return this._redBits;
-            }
-        },
-
-        /**
-         * The number of green bits per component in the default framebuffer's color buffer.  The minimum is eight.
-         * @memberof Context.prototype
-         * @type {Number}
-         * @see {@link https://www.khronos.org/opengles/sdk/docs/man/xhtml/glGet.xml|glGet} with <code>GREEN_BITS</code>.
-         */
-        greenBits : {
-            get : function() {
-                return this._greenBits;
-            }
-        },
-
-        /**
-         * The number of blue bits per component in the default framebuffer's color buffer.  The minimum is eight.
-         * @memberof Context.prototype
-         * @type {Number}
-         * @see {@link https://www.khronos.org/opengles/sdk/docs/man/xhtml/glGet.xml|glGet} with <code>BLUE_BITS</code>.
-         */
-        blueBits : {
-            get : function() {
-                return this._blueBits;
-            }
-        },
-
-        /**
-         * The number of alpha bits per component in the default framebuffer's color buffer.  The minimum is eight.
-         * <br /><br />
-         * The alpha channel is used for GL destination alpha operations and by the HTML compositor to combine the color buffer
-         * with the rest of the page.
-         * @memberof Context.prototype
-         * @type {Number}
-         * @see {@link https://www.khronos.org/opengles/sdk/docs/man/xhtml/glGet.xml|glGet} with <code>ALPHA_BITS</code>.
-         */
-        alphaBits : {
-            get : function() {
-                return this._alphaBits;
-            }
-        },
-
-        /**
-         * The number of depth bits per pixel in the default bound framebuffer.  The minimum is 16 bits; most
-         * implementations will have 24 bits.
-         * @memberof Context.prototype
-         * @type {Number}
-         * @see {@link https://www.khronos.org/opengles/sdk/docs/man/xhtml/glGet.xml|glGet} with <code>DEPTH_BITS</code>.
-         */
-        depthBits : {
-            get : function() {
-                return this._depthBits;
-            }
-        },
-
-        /**
          * The number of stencil bits per pixel in the default bound framebuffer.  The minimum is eight bits.
          * @memberof Context.prototype
          * @type {Number}
@@ -512,6 +448,18 @@ define([
         stencilBits : {
             get : function() {
                 return this._stencilBits;
+            }
+        },
+
+        /**
+         * <code>true</code> if the WebGL context supports stencil buffers.
+         * Stencil buffers are not supported by all systems.
+         * @memberof Context.prototype
+         * @type {Boolean}
+         */
+        stencilBuffer : {
+            get : function() {
+                return this._stencilBits >= 8;
             }
         },
 
@@ -538,7 +486,21 @@ define([
          */
         standardDerivatives : {
             get : function() {
-                return this._standardDerivatives;
+                return this._standardDerivatives || this._webgl2;
+            }
+        },
+
+        /**
+         * <code>true</code> if the EXT_blend_minmax extension is supported.  This
+         * extension extends blending capabilities by adding two new blend equations:
+         * the minimum or maximum color components of the source and destination colors.
+         * @memberof Context.prototype
+         * @type {Boolean}
+         * @see {@link https://www.khronos.org/registry/webgl/extensions/EXT_blend_minmax/}
+         */
+        blendMinmax : {
+            get : function() {
+                return this._blendMinmax || this._webgl2;
             }
         },
 
@@ -565,7 +527,7 @@ define([
          */
         depthTexture : {
             get : function() {
-                return this._depthTexture;
+                return this._depthTexture || this._webgl2;
             }
         },
 
@@ -578,13 +540,52 @@ define([
          */
         floatingPointTexture : {
             get : function() {
-                return this._textureFloat;
+                return this._textureFloat || this._colorBufferFloat;
             }
         },
 
         textureFilterAnisotropic : {
             get : function() {
                 return !!this._textureFilterAnisotropic;
+            }
+        },
+
+        /**
+         * <code>true</code> if WEBGL_texture_compression_s3tc is supported.  This extension provides
+         * access to DXT compressed textures.
+         * @memberof Context.prototype
+         * @type {Boolean}
+         * @see {@link https://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_s3tc/}
+         */
+        s3tc : {
+            get : function() {
+                return this._s3tc;
+            }
+        },
+
+        /**
+         * <code>true</code> if WEBGL_texture_compression_pvrtc is supported.  This extension provides
+         * access to PVR compressed textures.
+         * @memberof Context.prototype
+         * @type {Boolean}
+         * @see {@link https://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_pvrtc/}
+         */
+        pvrtc : {
+            get : function() {
+                return this._pvrtc;
+            }
+        },
+
+        /**
+         * <code>true</code> if WEBGL_texture_compression_etc1 is supported.  This extension provides
+         * access to ETC1 compressed textures.
+         * @memberof Context.prototype
+         * @type {Boolean}
+         * @see {@link https://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_etc1/}
+         */
+        etc1 : {
+            get : function() {
+                return this._etc1;
             }
         },
 
@@ -613,7 +614,7 @@ define([
          */
         fragmentDepth : {
             get : function() {
-                return this._fragDepth;
+                return this._fragDepth || this._webgl2;
             }
         },
 
@@ -627,6 +628,20 @@ define([
         instancedArrays : {
             get : function() {
                 return this._instancedArrays || this._webgl2;
+            }
+        },
+
+        /**
+         * <code>true</code> if the EXT_color_buffer_float extension is supported.  This
+         * extension makes the formats gl.R16F, gl.RG16F, gl.RGBA16F, gl.R32F, gl.RG32F,
+         * gl.RGBA32F, gl.R11F_G11F_B10F color renderable.
+         * @memberof Context.prototype
+         * @type {Boolean}
+         * @see {@link https://www.khronos.org/registry/webgl/extensions/EXT_color_buffer_float/}
+         */
+        colorBufferFloat : {
+            get : function() {
+                return this._colorBufferFloat;
             }
         },
 
@@ -658,7 +673,7 @@ define([
             },
             set : function(value) {
                 this._throwOnWebGLError = value;
-                this._gl = wrapGL(this._originalGLContext, value ? throwOnError : null);
+                this._gl = wrapGL(this._originalGLContext, value ? throwOnError : undefined);
             }
         },
 
@@ -757,7 +772,13 @@ define([
         }
     });
 
-    function validateFramebuffer(context, framebuffer) {
+    /**
+     * Validates a framebuffer.
+     * Available in debug builds only.
+     * @private
+     */
+    function validateFramebuffer(context) {
+        //>>includeStart('debug', pragmas.debug);
         if (context.validateFramebuffer) {
             var gl = context._gl;
             var status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
@@ -783,6 +804,7 @@ define([
                 throw new DeveloperError(message);
             }
         }
+        //>>includeEnd('debug');
     }
 
     function applyRenderState(context, renderState, passState, clear) {
@@ -806,7 +828,7 @@ define([
 
             if (defined(framebuffer)) {
                 framebuffer._bind();
-                validateFramebuffer(context, framebuffer);
+                validateFramebuffer(context);
 
                 // TODO: Need a way for a command to give what draw buffers are active.
                 buffers = framebuffer._getActiveColorAttachments();
@@ -868,8 +890,8 @@ define([
         gl.clear(bitmask);
     };
 
-    function beginDraw(context, framebuffer, drawCommand, passState, renderState, shaderProgram) {
-        var rs = defaultValue(defaultValue(renderState, drawCommand.renderState), context._defaultRenderState);
+    function beginDraw(context, framebuffer, drawCommand, passState) {
+        var rs = defaultValue(drawCommand._renderState, context._defaultRenderState);
 
         //>>includeStart('debug', pragmas.debug);
         if (defined(framebuffer) && rs.depthTest) {
@@ -883,16 +905,16 @@ define([
 
         applyRenderState(context, rs, passState, false);
 
-        var sp = defaultValue(shaderProgram, drawCommand.shaderProgram);
+        var sp = drawCommand._shaderProgram;
         sp._bind();
         context._maxFrameTextureUnitIndex = Math.max(context._maxFrameTextureUnitIndex, sp.maximumTextureUnitIndex);
     }
 
-    function continueDraw(context, drawCommand, shaderProgram) {
-        var primitiveType = drawCommand.primitiveType;
-        var va = drawCommand.vertexArray;
-        var offset = drawCommand.offset;
-        var count = drawCommand.count;
+    function continueDraw(context, drawCommand) {
+        var primitiveType = drawCommand._primitiveType;
+        var va = drawCommand._vertexArray;
+        var offset = drawCommand._offset;
+        var count = drawCommand._count;
         var instanceCount = drawCommand.instanceCount;
 
         //>>includeStart('debug', pragmas.debug);
@@ -921,9 +943,8 @@ define([
         }
         //>>includeEnd('debug');
 
-        context._us.model = defaultValue(drawCommand.modelMatrix, Matrix4.IDENTITY);
-        var sp = defaultValue(shaderProgram, drawCommand.shaderProgram);
-        sp._setUniforms(drawCommand.uniformMap, context._us, context.validateShaderProgram);
+        context._us.model = defaultValue(drawCommand._modelMatrix, Matrix4.IDENTITY);
+        drawCommand._shaderProgram._setUniforms(drawCommand._uniformMap, context._us, context.validateShaderProgram);
 
         va._bind();
         var indexBuffer = va.indexBuffer;
@@ -948,23 +969,23 @@ define([
         va._unBind();
     }
 
-    Context.prototype.draw = function(drawCommand, passState, renderState, shaderProgram) {
+    Context.prototype.draw = function(drawCommand, passState) {
         //>>includeStart('debug', pragmas.debug);
         if (!defined(drawCommand)) {
             throw new DeveloperError('drawCommand is required.');
         }
 
-        if (!defined(drawCommand.shaderProgram)) {
+        if (!defined(drawCommand._shaderProgram)) {
             throw new DeveloperError('drawCommand.shaderProgram is required.');
         }
         //>>includeEnd('debug');
 
         passState = defaultValue(passState, this._defaultPassState);
         // The command's framebuffer takes presidence over the pass' framebuffer, e.g., for off-screen rendering.
-        var framebuffer = defaultValue(drawCommand.framebuffer, passState.framebuffer);
+        var framebuffer = defaultValue(drawCommand._framebuffer, passState.framebuffer);
 
-        beginDraw(this, framebuffer, drawCommand, passState, renderState, shaderProgram);
-        continueDraw(this, drawCommand, shaderProgram);
+        beginDraw(this, framebuffer, drawCommand, passState);
+        continueDraw(this, drawCommand);
     };
 
     Context.prototype.endFrame = function() {
@@ -1086,7 +1107,8 @@ define([
             }),
             uniformMap : overrides.uniformMap,
             owner : overrides.owner,
-            framebuffer : overrides.framebuffer
+            framebuffer : overrides.framebuffer,
+            pass : overrides.pass
         });
     };
 
@@ -1100,10 +1122,9 @@ define([
      * @param {Color} pickColor The pick color.
      * @returns {Object} The object associated with the pick color, or undefined if no object is associated with that color.
      *
-     *
      * @example
      * var object = context.getObjectByPickColor(pickColor);
-     * 
+     *
      * @see Context#createPickId
      */
     Context.prototype.getObjectByPickColor = function(pickColor) {
@@ -1154,7 +1175,7 @@ define([
      *   primitive : this,
      *   id : this.id
      * });
-     * 
+     *
      * @see Context#getObjectByPickColor
      */
     Context.prototype.createPickId = function(object) {

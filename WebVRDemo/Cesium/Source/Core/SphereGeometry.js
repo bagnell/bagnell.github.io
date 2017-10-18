@@ -1,19 +1,18 @@
-/*global define*/
 define([
         './Cartesian3',
+        './Check',
         './defaultValue',
         './defined',
-        './DeveloperError',
         './EllipsoidGeometry',
         './VertexFormat'
     ], function(
         Cartesian3,
+        Check,
         defaultValue,
         defined,
-        DeveloperError,
         EllipsoidGeometry,
         VertexFormat) {
-    "use strict";
+    'use strict';
 
     /**
      * A description of a sphere centered at the origin.
@@ -31,8 +30,6 @@ define([
      * @exception {DeveloperError} options.stackPartitions cannot be less than three.
      *
      * @see SphereGeometry#createGeometry
-     *
-     * @demo {@link http://cesiumjs.org/Cesium/Apps/Sandcastle/index.html?src=Sphere.html|Cesium Sandcastle Sphere Demo}
      *
      * @example
      * var sphere = new Cesium.SphereGeometry({
@@ -67,15 +64,15 @@ define([
      * @param {SphereGeometry} value The value to pack.
      * @param {Number[]} array The array to pack into.
      * @param {Number} [startingIndex=0] The index into the array at which to start packing the elements.
+     *
+     * @returns {Number[]} The array that was packed into
      */
     SphereGeometry.pack = function(value, array, startingIndex) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(value)) {
-            throw new DeveloperError('value is required');
-        }
+        Check.typeOf.object('value', value);
         //>>includeEnd('debug');
 
-        EllipsoidGeometry.pack(value._ellipsoidGeometry, array, startingIndex);
+        return EllipsoidGeometry.pack(value._ellipsoidGeometry, array, startingIndex);
     };
 
     var scratchEllipsoidGeometry = new EllipsoidGeometry();

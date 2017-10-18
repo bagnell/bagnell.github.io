@@ -1,21 +1,20 @@
-/*global define*/
 define([
         './BoundingSphere',
         './Cartesian3',
+        './Check',
         './defaultValue',
         './defined',
         './defineProperties',
-        './DeveloperError',
         './Rectangle'
     ], function(
         BoundingSphere,
         Cartesian3,
+        Check,
         defaultValue,
         defined,
         defineProperties,
-        DeveloperError,
         Rectangle) {
-    "use strict";
+    'use strict';
 
     /**
      * Determine whether or not other objects are visible or hidden behind the visible horizon defined by
@@ -42,9 +41,7 @@ define([
      */
     function EllipsoidalOccluder(ellipsoid, cameraPosition) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(ellipsoid)) {
-            throw new DeveloperError('ellipsoid is required.');
-        }
+        Check.typeOf.object('ellipsoid', ellipsoid);
         //>>includeEnd('debug');
 
         this._ellipsoid = ellipsoid;
@@ -159,12 +156,8 @@ define([
      */
     EllipsoidalOccluder.prototype.computeHorizonCullingPoint = function(directionToPoint, positions, result) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(directionToPoint)) {
-            throw new DeveloperError('directionToPoint is required');
-        }
-        if (!defined(positions)) {
-            throw new DeveloperError('positions is required');
-        }
+        Check.typeOf.object('directionToPoint', directionToPoint);
+        Check.defined('positions', positions);
         //>>includeEnd('debug');
 
         if (!defined(result)) {
@@ -206,15 +199,9 @@ define([
      */
     EllipsoidalOccluder.prototype.computeHorizonCullingPointFromVertices = function(directionToPoint, vertices, stride, center, result) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(directionToPoint)) {
-            throw new DeveloperError('directionToPoint is required');
-        }
-        if (!defined(vertices)) {
-            throw new DeveloperError('vertices is required');
-        }
-        if (!defined(stride)) {
-            throw new DeveloperError('stride is required');
-        }
+        Check.typeOf.object('directionToPoint', directionToPoint);
+        Check.defined('vertices', vertices);
+        Check.typeOf.number('stride', stride);
         //>>includeEnd('debug');
 
         if (!defined(result)) {
@@ -238,52 +225,10 @@ define([
         return magnitudeToPoint(scaledSpaceDirectionToPoint, resultMagnitude, result);
     };
 
-    /**
-     * Computes a point that can be used for horizon culling from a list of positions.  If the point is below
-     * the horizon, all of the positions are guaranteed to be below the horizon as well.  The returned point
-     * is expressed in the ellipsoid-scaled space and is suitable for use with
-     * {@link EllipsoidalOccluder#isScaledSpacePointVisible}.
-     *
-     * @param {Cartesian3} directionToPoint The direction that the computed point will lie along.
-     *                     A reasonable direction to use is the direction from the center of the ellipsoid to
-     *                     the center of the bounding sphere computed from the positions.  The direction need not
-     *                     be normalized.
-     * @param {Cartesian3[]} points  The vertices from which to compute the horizon culling point.  The positions
-     *                   must be expressed in a reference frame centered at the ellipsoid and aligned with the
-     *                   ellipsoid's axes.
-     * @param {Cartesian3} [result] The instance on which to store the result instead of allocating a new instance.
-     * @returns {Cartesian3} The computed horizon culling point, expressed in the ellipsoid-scaled space.
-     */
-    EllipsoidalOccluder.prototype.computeHorizonCullingPointFromPoints = function(directionToPoint, points, result) {
-        //>>includeStart('debug', pragmas.debug);
-        if (!defined(directionToPoint)) {
-            throw new DeveloperError('directionToPoint is required');
-        }
-        if (!defined(points)) {
-            throw new DeveloperError('points is required');
-        }
-        //>>includeEnd('debug');
-
-        if (!defined(result)) {
-            result = new Cartesian3();
-        }
-
-        var ellipsoid = this._ellipsoid;
-        var scaledSpaceDirectionToPoint = computeScaledSpaceDirectionToPoint(ellipsoid, directionToPoint);
-        var resultMagnitude = 0.0;
-
-        for (var i = 0, len = points.length; i < len; ++i) {
-            var candidateMagnitude = computeMagnitude(ellipsoid, points[i], scaledSpaceDirectionToPoint);
-            resultMagnitude = Math.max(resultMagnitude, candidateMagnitude);
-        }
-
-        return magnitudeToPoint(scaledSpaceDirectionToPoint, resultMagnitude, result);
-    };
-
     var subsampleScratch = [];
 
     /**
-     * Computes a point that can be used for horizon culling of an rectangle.  If the point is below
+     * Computes a point that can be used for horizon culling of a rectangle.  If the point is below
      * the horizon, the ellipsoid-conforming rectangle is guaranteed to be below the horizon as well.
      * The returned point is expressed in the ellipsoid-scaled space and is suitable for use with
      * {@link EllipsoidalOccluder#isScaledSpacePointVisible}.
@@ -296,9 +241,7 @@ define([
      */
     EllipsoidalOccluder.prototype.computeHorizonCullingPointFromRectangle = function(rectangle, ellipsoid, result) {
         //>>includeStart('debug', pragmas.debug);
-        if (!defined(rectangle)) {
-            throw new DeveloperError('rectangle is required.');
-        }
+        Check.typeOf.object('rectangle', rectangle);
         //>>includeEnd('debug');
 
         var positions = Rectangle.subsample(rectangle, ellipsoid, 0.0, subsampleScratch);
@@ -347,6 +290,10 @@ define([
     var directionToPointScratch = new Cartesian3();
 
     function computeScaledSpaceDirectionToPoint(ellipsoid, directionToPoint) {
+        if (Cartesian3.equals(directionToPoint, Cartesian3.ZERO)) {
+            return directionToPoint;
+        }
+
         ellipsoid.transformPositionToScaledSpace(directionToPoint, directionToPointScratch);
         return Cartesian3.normalize(directionToPointScratch, directionToPointScratch);
     }
